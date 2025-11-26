@@ -1,0 +1,20 @@
+# Core
+streamlit==1.29.0
+python-dotenv==1.0.0
+
+# OpenAI APIs
+openai==1.6.1
+
+# Audio Processing
+audio-recorder-streamlit==0.0.8
+streamlit-webrtc==0.47.1
+pydub==0.25.1
+
+# Image Processing
+Pillow==10.1.0
+
+# Utilities
+requests==2.31.0
+
+# Audio Recording (for live microphone)
+streamlit-audio-recorder==0.0.8
