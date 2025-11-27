@@ -169,43 +169,26 @@ def show_home_page():
 def analyze_image(image_bytes):
     """Analyze image and generate audio outputs"""
     
-    st.write(f"DEBUG: Starting analysis with image size: {len(image_bytes)} bytes")
-    
     try:
         # Step 1: Analyze artwork
-        with st.spinner("Analyzing artwork..."):
-            st.write("DEBUG: Calling analyze_artwork()...")
+        with st.spinner("Examining the artwork and identifying visual elements..."):
             description = analyze_artwork(image_bytes)
             
-            st.write(f"DEBUG: Description result: {description[:100] if description else 'None'}...")
-            
             if not description:
-                st.error("Failed to analyze artwork. Please check:")
-                st.error("- Your API key is valid")
-                st.error("- You have internet connection")
-                st.error("- OpenAI API is accessible")
-                st.info("Check the terminal/console for detailed error messages")
+                st.error("Unable to analyze the artwork. Please ensure your internet connection is active and try again.")
                 return False
             
             st.session_state.description = description
-            st.write(f"DEBUG: Description saved to session_state ({len(description)} chars)")
         
         # Step 2: Extract metadata
-        with st.spinner("Extracting metadata..."):
-            st.write("DEBUG: Calling get_metadata()...")
+        with st.spinner("Identifying the artist, title, and historical context..."):
             metadata = get_metadata(image_bytes)
             
-            st.write(f"DEBUG: Metadata result: {metadata}")
-            
             if not metadata:
-                st.error("Failed to extract metadata. Please check:")
-                st.error("- Your API key is valid")
-                st.error("- You have internet connection")
-                st.info("Check the terminal/console for detailed error messages")
+                st.error("Unable to retrieve artwork information. Please check your connection and try again.")
                 return False
             
             st.session_state.metadata = metadata
-            st.write(f"DEBUG: Metadata saved to session_state")
         
         # Create audio_outputs directory if it doesn't exist
         from pathlib import Path
@@ -213,34 +196,18 @@ def analyze_image(image_bytes):
         audio_dir.mkdir(exist_ok=True)
         
         import uuid
-        session_id = str(uuid.uuid4())[:8]  # Short unique ID
+        session_id = str(uuid.uuid4())[:8]
         
         # Step 3: Generate description audio and save to file
-        st.write("DEBUG: About to generate description audio...")
-        st.write(f"DEBUG: Description length: {len(description)} chars")
-        
-        # Try without spinner first
-        description_audio = None
-        try:
-            st.write("DEBUG: Calling text_to_speech()...")
+        with st.spinner("Preparing audio description of the artwork..."):
             description_audio = text_to_speech(description, timeout=60)
-            st.write(f"DEBUG: text_to_speech() returned!")
-            st.write(f"DEBUG: Result is None: {description_audio is None}")
-        except Exception as e:
-            st.error(f"Exception during TTS: {e}")
-            import traceback
-            st.write(traceback.format_exc())
         
         if description_audio:
-            st.write(f"DEBUG: Audio size: {len(description_audio)} bytes")
-            # Save to file
             audio_path = audio_dir / f"description_{session_id}.mp3"
             with open(audio_path, "wb") as f:
                 f.write(description_audio)
             st.session_state.description_audio_path = str(audio_path)
-            st.success(f"Description audio saved to {audio_path}")
         else:
-            st.warning("Could not generate audio description")
             st.session_state.description_audio_path = None
         
         # Step 4: Generate metadata audio and save to file
@@ -250,44 +217,22 @@ Title: {metadata.get('title', 'Unknown')}.
 Year: {metadata.get('year', 'Unknown')}.
 Period: {metadata.get('period', 'Unknown')}.
 """
-        st.write("DEBUG: About to generate metadata audio...")
-        st.write(f"DEBUG: Metadata text length: {len(metadata_text)} chars")
-        
-        # Try without spinner first
-        metadata_audio = None
-        try:
-            st.write("DEBUG: Calling text_to_speech()...")
+        with st.spinner("Creating audio summary of artwork details..."):
             metadata_audio = text_to_speech(metadata_text, timeout=60)
-            st.write(f"DEBUG: text_to_speech() returned!")
-            st.write(f"DEBUG: Result is None: {metadata_audio is None}")
-        except Exception as e:
-            st.error(f"Exception during TTS: {e}")
-            import traceback
-            st.write(traceback.format_exc())
         
         if metadata_audio:
-            st.write(f"DEBUG: Audio size: {len(metadata_audio)} bytes")
-            # Save to file
             audio_path = audio_dir / f"metadata_{session_id}.mp3"
             with open(audio_path, "wb") as f:
                 f.write(metadata_audio)
             st.session_state.metadata_audio_path = str(audio_path)
-            st.success(f"Metadata audio saved to {audio_path}")
         else:
-            st.warning("Could not generate metadata audio")
             st.session_state.metadata_audio_path = None
         
-        st.success("Analysis complete!")
-        st.write("DEBUG: Returning True")
+        st.success("Artwork analysis complete. Audio ready to play.")
         return True
         
     except Exception as e:
-        st.error(f"Unexpected error during analysis: {str(e)}")
-        st.info("Check the terminal/console for detailed error messages")
-        print(f"Exception in analyze_image: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        st.write(f"DEBUG: Exception occurred: {str(e)}")
+        st.error("An error occurred while processing the artwork. Please try again.")
         return False
 
 
@@ -358,95 +303,8 @@ def audio_guide_page():
     </style>
     """, unsafe_allow_html=True)
     
-    st.title("🔊 Audio-Guide (Accessible Mode)")
+    st.title("Audio-Guide (Accessible Mode)")
     
-    # DEBUG: Add test section
-    with st.expander("🧪 DEBUG: Test Audio Generation", expanded=False):
-        if st.button("Generate Test Audio"):
-            test_text = "This is a short test."
-            st.write(f"Testing TTS with: '{test_text}'")
-            
-            try:
-                test_audio = text_to_speech(test_text, timeout=30)
-                
-                if test_audio:
-                    st.success(f"✅ Generated {len(test_audio)} bytes")
-                    st.write(f"First 20 bytes (hex): {test_audio[:20].hex()}")
-                    
-                    # Try to play it
-                    st.audio(test_audio, format="audio/mp3")
-                    
-                    # Also save to file
-                    import uuid
-                    from pathlib import Path
-                    audio_dir = Path("audio_outputs")
-                    audio_dir.mkdir(exist_ok=True)
-                    test_path = audio_dir / f"test_{uuid.uuid4().hex[:8]}.mp3"
-                    with open(test_path, "wb") as f:
-                        f.write(test_audio)
-                    st.write(f"Saved to: {test_path}")
-                    st.write("Try opening this file directly to verify it works")
-                else:
-                    st.error("❌ TTS returned None")
-            except Exception as e:
-                st.error(f"❌ Exception: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-    
-    # Generate and play welcome audio on first load
-    if not st.session_state.welcome_audio_played:
-        st.info("🔊 Generating welcome message... Please wait.")
-        
-        welcome_audio_bytes = generate_welcome_audio()
-        
-        if welcome_audio_bytes and len(welcome_audio_bytes) > 0:
-            # Save to file immediately
-            from pathlib import Path
-            import uuid
-            audio_dir = Path("audio_outputs")
-            audio_dir.mkdir(exist_ok=True)
-            welcome_id = str(uuid.uuid4())[:8]
-            welcome_path = audio_dir / f"welcome_{welcome_id}.mp3"
-            
-            with open(welcome_path, "wb") as f:
-                f.write(welcome_audio_bytes)
-            
-            st.session_state.welcome_audio_path = str(welcome_path)
-            st.session_state.welcome_audio_played = True
-            
-            st.success(f"✅ Welcome audio ready! ({len(welcome_audio_bytes)} bytes)")
-        else:
-            st.error("❌ Could not generate welcome audio.")
-            st.error("**Check terminal for error messages**")
-            st.session_state.welcome_audio_played = True
-    
-    # Show welcome audio player prominently
-    if st.session_state.welcome_audio_path:
-        from pathlib import Path
-        welcome_file = Path(st.session_state.welcome_audio_path)
-        if welcome_file.exists():
-            st.markdown("---")
-            st.markdown("## 🎙️ Welcome Instructions")
-            st.info("👇 **TAP THE PLAY BUTTON BELOW** to hear the welcome message and instructions")
-            
-            # Try reading file and using base64
-            import base64
-            with open(welcome_file, "rb") as f:
-                audio_bytes = f.read()
-            
-            # Create data URL
-            audio_b64 = base64.b64encode(audio_bytes).decode()
-            audio_html = f'<audio controls src="data:audio/mp3;base64,{audio_b64}" style="width: 100%;"></audio>'
-            st.markdown(audio_html, unsafe_allow_html=True)
-            st.success("🔊 Audio player loaded - tap play!")
-            
-            st.markdown("---")
-        else:
-            st.error("⚠️ Welcome audio file not found")
-            st.markdown("---")
-    elif st.session_state.welcome_audio_played:
-        st.error("⚠️ Welcome audio generation failed. Please check your API key and internet connection.")
-        st.markdown("---")
     
     # Back button with clear label
     if st.button("← BACK TO HOME", key="back_button", help="Return to home page"):
@@ -465,7 +323,7 @@ def audio_guide_page():
     # Step 1: Upload Image & Auto-Analyze
     if not analysis_complete:
         st.markdown("## Step 1: Upload Artwork Photo")
-        st.info("📷 Upload a photo of the artwork. It will be automatically analyzed and audio will play.")
+        st.info("Upload a photo of the artwork. It will be automatically analyzed and audio will play.")
         
         uploaded_file = st.file_uploader(
             "Choose an image (JPG, PNG, WEBP)",
@@ -482,17 +340,14 @@ def audio_guide_page():
             image = Image.open(io.BytesIO(st.session_state.image))
             st.image(image, caption="Uploaded artwork", use_container_width=True)
             
-            st.success("✅ Image uploaded successfully!")
-            
             # AUTO-ANALYZE: Automatically analyze without button click
             if not st.session_state.auto_analyze_done:
-                st.info("🔄 Automatically analyzing artwork... Please wait.")
                 success = analyze_image(st.session_state.image)
                 if success:
                     st.session_state.auto_analyze_done = True
                     st.rerun()
                 else:
-                    st.error("❌ Analysis failed. Please try uploading again.")
+                    st.error("Analysis failed. Please try uploading again.")
                     st.session_state.auto_analyze_done = False
     
     # Step 2: Show results and audio playback (only if analysis is complete)
@@ -504,8 +359,7 @@ def audio_guide_page():
         st.markdown("---")
         
         # Audio Description
-        st.markdown("## 🎵 Audio Description")
-        st.info("👇 **TAP THE PLAY BUTTON BELOW** to hear the artwork description")
+        st.markdown("## Description")
         
         if st.session_state.description_audio_path:
             from pathlib import Path
@@ -517,21 +371,46 @@ def audio_guide_page():
                     audio_bytes = f.read()
                 
                 audio_b64 = base64.b64encode(audio_bytes).decode()
-                audio_html = f'<audio controls src="data:audio/mp3;base64,{audio_b64}" style="width: 100%;"></audio>'
+                
+                # Add unique ID for this audio player
+                audio_id = "description_audio"
+                
+                # Create HTML with autoplay JavaScript
+                audio_html = f'''
+                <audio id="{audio_id}" controls style="width: 100%;">
+                    <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+                </audio>
+                <script>
+                    // Auto-play the audio when page loads
+                    (function() {{
+                        var audio = document.getElementById('{audio_id}');
+                        if (audio) {{
+                            // Try to play - handle promise for newer browsers
+                            var playPromise = audio.play();
+                            if (playPromise !== undefined) {{
+                                playPromise.then(function() {{
+                                    console.log('Audio playing automatically');
+                                }}).catch(function(error) {{
+                                    console.log('Autoplay prevented:', error);
+                                }});
+                            }}
+                        }}
+                    }})();
+                </script>
+                '''
+                
                 st.markdown(audio_html, unsafe_allow_html=True)
-                st.success("🔊 Audio player ready - tap play to listen!")
             else:
-                st.error("❌ Audio file not found")
+                st.error("Audio file not found")
         else:
-            st.warning("⚠️ Audio description not generated.")
-            with st.expander("📖 View text description"):
+            st.warning("Audio description not generated.")
+            with st.expander("View text description"):
                 st.write(st.session_state.description)
         
         st.markdown("---")
         
         # Audio Metadata
-        st.markdown("## 📋 Artwork Information (Audio)")
-        st.info("👇 **TAP THE PLAY BUTTON BELOW** to hear the artwork metadata")
+        st.markdown("## Artwork Information")
         
         if st.session_state.metadata_audio_path:
             from pathlib import Path
@@ -543,14 +422,47 @@ def audio_guide_page():
                     audio_bytes = f.read()
                 
                 audio_b64 = base64.b64encode(audio_bytes).decode()
-                audio_html = f'<audio controls src="data:audio/mp3;base64,{audio_b64}" style="width: 100%;"></audio>'
+                
+                # Add unique ID for this audio player
+                metadata_audio_id = "metadata_audio"
+                
+                # Create HTML with autoplay after description ends
+                audio_html = f'''
+                <audio id="{metadata_audio_id}" controls style="width: 100%;">
+                    <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+                </audio>
+                <script>
+                    // Auto-play metadata after description ends
+                    (function() {{
+                        var descriptionAudio = document.getElementById('description_audio');
+                        var metadataAudio = document.getElementById('{metadata_audio_id}');
+                        
+                        if (descriptionAudio && metadataAudio) {{
+                            // Wait for description to end, then play metadata
+                            descriptionAudio.addEventListener('ended', function() {{
+                                console.log('Description ended, playing metadata...');
+                                setTimeout(function() {{
+                                    var playPromise = metadataAudio.play();
+                                    if (playPromise !== undefined) {{
+                                        playPromise.then(function() {{
+                                            console.log('Metadata playing automatically');
+                                        }}).catch(function(error) {{
+                                            console.log('Metadata autoplay prevented:', error);
+                                        }});
+                                    }}
+                                }}, 1000); // 1 second pause between audio clips
+                            }});
+                        }}
+                    }})();
+                </script>
+                '''
+                
                 st.markdown(audio_html, unsafe_allow_html=True)
-                st.success("🔊 Audio player ready - tap play to listen!")
             else:
-                st.error("❌ Audio file not found")
+                st.error("Audio file not found")
         else:
-            st.warning("⚠️ Audio metadata not generated.")
-            with st.expander("📖 View text metadata"):
+            st.warning("Audio metadata not generated.")
+            with st.expander("View text metadata"):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**Artist:** {st.session_state.metadata.get('artist', 'Unknown')}")
@@ -562,29 +474,31 @@ def audio_guide_page():
         st.markdown("---")
         
         # Voice Q&A Section with clear instructions
-        st.markdown("## 🎤 Ask Questions (Voice)")
-        st.info("🎙️ TAP THE BUTTON BELOW to record your question. Speak clearly after you hear the recording start.")
+        st.markdown("## Chatbot")
+        
+        # Check if audio recorder is available
+        if not AUDIO_RECORDER_AVAILABLE:
+            st.error("Audio recorder not available. Please install: pip install audio-recorder-streamlit")
+            st.stop()
+        
+        st.info("Tap the button below to record your question.")
         
         # Audio recorder widget
         audio_bytes = audio_recorder(
-            text="🎤 TAP TO RECORD QUESTION",
-            recording_color="#FFFF00",
+            text="TAP TO RECORD QUESTION",
+            recording_color="#FF0000",
             neutral_color="#FFFFFF",
             icon_name="microphone",
             icon_size="3x",
         )
         
         if audio_bytes:
-            st.success("✅ Recording received!")
-            
             # Show playback
             st.audio(audio_bytes, format="audio/wav")
             
-            if st.button("🤖 GET ANSWER", type="primary", key="process_live_recording", help="Process your question and get an answer"):
-                # Audio confirmation
-                st.info("🔄 Processing your question...")
+            if st.button("GET ANSWER", type="primary", key="process_live_recording", help="Process your question and get an answer"):
                 
-                with st.spinner("Transcribing question..."):
+                with st.spinner("Converting your voice recording to text..."):
                     # Save audio for debugging
                     import uuid
                     audio_dir = Path("audio_outputs")
@@ -597,10 +511,8 @@ def audio_guide_page():
                     
                     # Transcribe question (auto-detect language)
                     question = speech_to_text(audio_bytes, language=None)
-                    
-                    st.success(f"✅ **Your question:** {question}")
                 
-                with st.spinner("Getting answer..."):
+                with st.spinner("Analyzing the artwork to answer your question..."):
                     # Get answer from chatbot
                     answer = chat_with_artwork(
                         question=question,
@@ -609,13 +521,11 @@ def audio_guide_page():
                         chat_history=st.session_state.chat_history
                     )
                     
-                    st.info(f"💬 **Answer:** {answer}")
-                    
                     # Update chat history
                     st.session_state.chat_history.append({"role": "user", "content": question})
                     st.session_state.chat_history.append({"role": "assistant", "content": answer})
                 
-                with st.spinner("Generating audio answer..."):
+                with st.spinner("Preparing audio response..."):
                     # Generate audio answer
                     answer_audio = text_to_speech(answer, timeout=60)
                     
@@ -630,8 +540,8 @@ def audio_guide_page():
                         with open(audio_path, "wb") as f:
                             f.write(answer_audio)
                         
-                        st.markdown("### 🔊 Audio Answer")
-                        st.info("👇 **TAP THE PLAY BUTTON** to hear the answer")
+                        st.markdown("### Audio Answer")
+                        st.info("Tap the play button to hear the answer")
                         
                         # Read from file, encode to base64, and display
                         import base64
@@ -641,28 +551,13 @@ def audio_guide_page():
                         audio_b64 = base64.b64encode(audio_data).decode()
                         audio_html = f'<audio controls src="data:audio/mp3;base64,{audio_b64}" style="width: 100%;"></audio>'
                         st.markdown(audio_html, unsafe_allow_html=True)
-                        st.success("🔊 Audio answer ready - tap play to listen!")
                     else:
-                        st.error("❌ Failed to generate audio answer.")
-        
-        # Display chat history with high contrast
-        if st.session_state.chat_history:
-            with st.expander("📜 VIEW CONVERSATION HISTORY", expanded=False):
-                for i, msg in enumerate(st.session_state.chat_history):
-                    if msg['role'] == 'user':
-                        st.markdown(f"### 👤 You:")
-                        st.markdown(f"{msg['content']}")
-                    else:
-                        st.markdown(f"### 🤖 Assistant:")
-                        st.markdown(f"{msg['content']}")
-                    if i < len(st.session_state.chat_history) - 1:
-                        st.markdown("---")
+                        st.error("Unable to generate audio response. Please try again.")
         
         st.markdown("---")
         
         # New analysis button - large and prominent
-        if st.button("🖼️ ANALYZE NEW ARTWORK", type="primary", key="new_artwork", help="Start over with a new artwork"):
-            st.info("🔄 Resetting for new artwork...")
+        if st.button("ANALYZE NEW ARTWORK", type="primary", key="new_artwork", help="Start over with a new artwork"):
             st.session_state.image = None
             st.session_state.description = None
             st.session_state.metadata = None
@@ -731,21 +626,31 @@ def visual_guide_page():
             st.markdown("### Artwork Description")
             
             if st.session_state.description:
-                st.write(st.session_state.description)
+                with st.expander("View Description", expanded=False):
+                    st.write(st.session_state.description)
                 
                 # Audio playback option
                 if st.session_state.description_audio_path:
                     from pathlib import Path
                     audio_file = Path(st.session_state.description_audio_path)
                     if audio_file.exists():
-                        st.markdown("#### 🔊 Listen to description")
+                        st.markdown("#### Audio Description")
                         
-                        # Read audio file
+                        # Read audio file and encode to base64
+                        import base64
                         with open(audio_file, "rb") as f:
                             audio_bytes = f.read()
                         
-                        # Use Streamlit's native audio component
-                        st.audio(audio_bytes, format="audio/mp3")
+                        audio_b64 = base64.b64encode(audio_bytes).decode()
+                        
+                        # Create HTML audio player (same method as audio guide)
+                        audio_html = f'''
+                        <audio controls style="width: 100%;">
+                            <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+                        </audio>
+                        '''
+                        
+                        st.markdown(audio_html, unsafe_allow_html=True)
             else:
                 st.warning("Description not available. Please try analyzing again.")
         
@@ -769,7 +674,7 @@ def visual_guide_page():
         st.markdown("---")
         
         # Chat section
-        st.markdown("### Ask Questions")
+        st.markdown("### Chatbot")
         
         # Display chat history
         chat_container = st.container()
@@ -792,9 +697,9 @@ def visual_guide_page():
         if submit_button and user_question:
             # Check if we have description and metadata
             if not st.session_state.description or not st.session_state.metadata:
-                st.error("Please analyze an artwork first before asking questions!")
+                st.error("Please analyze an artwork first.")
             else:
-                with st.spinner("Thinking..."):
+                with st.spinner("Finding the answer to your question..."):
                     try:
                         # Get answer
                         answer = chat_with_artwork(
@@ -808,7 +713,7 @@ def visual_guide_page():
                         st.session_state.chat_history.append({"role": "user", "content": user_question})
                         st.session_state.chat_history.append({"role": "assistant", "content": answer})
                     except Exception as e:
-                        st.error(f"Chat error: {str(e)}")
+                        st.error("Unable to process your question. Please try again.")
                 
                 st.rerun()
         

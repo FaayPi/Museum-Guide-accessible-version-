@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).parent))
 
 # Import backend functions
 from utils.vision import analyze_artwork, get_metadata
-from utils.audio import text_to_speech, speech_to_text
+from utils.audio_origin import text_to_speech, speech_to_text
 from utils.chat import chat_with_artwork
 import config
 
