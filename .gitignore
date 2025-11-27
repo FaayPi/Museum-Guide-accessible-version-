@@ -4,3 +4,4 @@ test_*.jpg
 test_*.mp3
 .env
 .env
+.env
