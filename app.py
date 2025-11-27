@@ -326,10 +326,10 @@ def audio_guide_page():
             else:
                 st.error("⚠️ Audio file not found")
             
-            with st.expander("📝 View text description"):
-                st.write(st.session_state.description)
+            # with st.expander("📝 View text description"):
+            #     st.write(st.session_state.description)
         else:
-            st.warning("⚠️ Audio description not generated. The text description is available below:")
+            st.warning("⚠️ Audio description not generated.")
             st.write(st.session_state.description)
         
         st.markdown("---")
@@ -363,16 +363,16 @@ def audio_guide_page():
             else:
                 st.error("⚠️ Audio file not found")
             
-            with st.expander("📝 View metadata"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Artist:** {st.session_state.metadata.get('artist', 'Unknown')}")
-                    st.write(f"**Title:** {st.session_state.metadata.get('title', 'Unknown')}")
-                with col2:
-                    st.write(f"**Year:** {st.session_state.metadata.get('year', 'Unknown')}")
-                    st.write(f"**Period:** {st.session_state.metadata.get('period', 'Unknown')}")
+            # with st.expander("📝 View metadata"):
+            #     col1, col2 = st.columns(2)
+            #     with col1:
+            #         st.write(f"**Artist:** {st.session_state.metadata.get('artist', 'Unknown')}")
+            #         st.write(f"**Title:** {st.session_state.metadata.get('title', 'Unknown')}")
+            #     with col2:
+            #         st.write(f"**Year:** {st.session_state.metadata.get('year', 'Unknown')}")
+            #         st.write(f"**Period:** {st.session_state.metadata.get('period', 'Unknown')}")
         else:
-            st.warning("⚠️ Audio metadata not generated. The text metadata is available below:")
+            st.warning("⚠️ Audio metadata not generated.")
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"**Artist:** {st.session_state.metadata.get('artist', 'Unknown')}")
@@ -383,143 +383,56 @@ def audio_guide_page():
         
         st.markdown("---")
         
-        # Audio Chat Section
-        st.markdown("## 💬 Ask Questions (Voice Chat)")
+        # # Audio Chat Section
+        # st.markdown("## 💬 Ask Questions (Voice Chat)")
         
-        if AUDIO_RECORDER_AVAILABLE:
-            st.info("""
-            **How to use:**
-            1. Click the microphone button below
-            2. Allow microphone access when prompted
-            3. Speak your question clearly
-            4. Click stop when done
-            5. Get an audio answer!
-            """)
+        # if AUDIO_RECORDER_AVAILABLE:
+        #     st.info("""
+        #     **How to use:**
+        #     1. Click the microphone button below
+        #     2. Allow microphone access when prompted
+        #     3. Speak your question clearly
+        #     4. Click stop when done
+        #     5. Get an audio answer!
+        #     """)
             
-            st.markdown("### 🎤 Record Your Question")
+        st.markdown("### 🎤 Record Your Question")
             
-            # Audio recorder widget
-            audio_bytes = audio_recorder(
-                text="Click to record",
-                recording_color="#ff4b4b",
-                neutral_color="#6aa36f",
-                icon_name="microphone",
-                icon_size="3x",
-            )
-            
-            if audio_bytes:
-                st.success("✅ Recording received!")
-                
-                # Show playback
-                st.audio(audio_bytes, format="audio/wav")
-                
-                if st.button("🎤 Process Question", type="primary", key="process_live_recording"):
-                    with st.spinner("🎤 Transcribing question..."):
-                        # Save audio for debugging
-                        import uuid
-                        audio_dir = Path("audio_outputs")
-                        audio_dir.mkdir(exist_ok=True)
-                        debug_id = str(uuid.uuid4())[:8]
-                        debug_path = audio_dir / f"recording_{debug_id}.wav"
-                        
-                        with open(debug_path, "wb") as f:
-                            f.write(audio_bytes)
-                        
-                        st.write(f"🔍 DEBUG: Audio saved to {debug_path} for review")
-                        st.write(f"🔍 DEBUG: Audio size: {len(audio_bytes)} bytes")
-                        
-                        # Transcribe question (auto-detect language)
-                        question = speech_to_text(audio_bytes, language=None)
-                        
-                        st.write(f"**Your question:** {question}")
-                        st.info(f"💡 If transcription is wrong, play the audio file: {debug_path}")
-                    
-                    with st.spinner("🤖 Getting answer..."):
-                        # Get answer from chatbot
-                        answer = chat_with_artwork(
-                            question=question,
-                            artwork_description=st.session_state.description,
-                            metadata=st.session_state.metadata,
-                            chat_history=st.session_state.chat_history
-                        )
-                        
-                        st.write(f"**Answer:** {answer}")
-                        
-                        # Update chat history
-                        st.session_state.chat_history.append({"role": "user", "content": question})
-                        st.session_state.chat_history.append({"role": "assistant", "content": answer})
-                    
-                    with st.spinner("🔊 Generating audio answer..."):
-                        # Generate audio answer
-                        answer_audio = text_to_speech(answer, timeout=60)
-                        
-                        if answer_audio:
-                            st.write(f"🔍 DEBUG: Audio size: {len(answer_audio)} bytes")
-                            
-                            # Save to file
-                            import uuid
-                            audio_dir = Path("audio_outputs")
-                            audio_dir.mkdir(exist_ok=True)
-                            answer_id = str(uuid.uuid4())[:8]
-                            audio_path = audio_dir / f"answer_{answer_id}.mp3"
-                            
-                            with open(audio_path, "wb") as f:
-                                f.write(answer_audio)
-                            
-                            st.markdown("### 🔊 Audio Answer:")
-                            
-                            # Read audio and convert to base64
-                            import base64
-                            with open(audio_path, "rb") as f:
-                                audio_bytes_read = f.read()
-                            audio_b64 = base64.b64encode(audio_bytes_read).decode()
-                            
-                            # Create HTML5 audio player
-                            audio_html = f"""
-                            <audio controls style="width: 100%;" autoplay>
-                                <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
-                                Your browser does not support the audio element.
-                            </audio>
-                            """
-                            st.markdown(audio_html, unsafe_allow_html=True)
-                            st.success("🔊 Audio answer playing!")
-                        else:
-                            st.error("❌ Failed to generate audio answer.")
-            
-            st.markdown("---")
-            st.markdown("### 📁 Alternative: Upload Audio File")
-            st.caption("If live recording doesn't work, you can upload a pre-recorded file")
-        
-        else:
-            # Fallback if audio-recorder not installed
-            st.warning("⚠️ Live recording not available. Please install: `pip install streamlit-audio-recorder`")
-            st.info("""
-            **For now, upload a recorded audio file:**
-            1. Record your question using your phone or computer
-            2. Save as MP3 or WAV
-            3. Upload below
-            """)
-        
-        # Audio upload (backup method or if recorder not available)
-        audio_file = st.file_uploader(
-            "Upload audio file (optional backup method)",
-            type=['mp3', 'wav'],
-            help="Backup option",
-            key="audio_question_upload"
+        # Audio recorder widget
+        audio_bytes = audio_recorder(
+            text="Click to record",
+            recording_color="#ff4b4b",
+            neutral_color="#6aa36f",
+            icon_name="microphone",
+            icon_size="3x",
         )
         
-        if audio_file:
-            st.audio(audio_file, format="audio/mp3")
+        if audio_bytes:
+            st.success("✅ Recording received!")
             
-            if st.button("🎤 Process Question", type="primary"):
+            # Show playback
+            st.audio(audio_bytes, format="audio/wav")
+            
+            if st.button("🎤 Process Question", type="primary", key="process_live_recording"):
                 with st.spinner("🎤 Transcribing question..."):
-                    # Transcribe question
-                    audio_bytes = audio_file.getvalue()
-                    st.write(f"🔍 DEBUG: Audio file size: {len(audio_bytes)} bytes")
-                    question = speech_to_text(audio_bytes, language="en")
+                    # Save audio for debugging
+                    import uuid
+                    audio_dir = Path("audio_outputs")
+                    audio_dir.mkdir(exist_ok=True)
+                    debug_id = str(uuid.uuid4())[:8]
+                    debug_path = audio_dir / f"recording_{debug_id}.wav"
+                    
+                    with open(debug_path, "wb") as f:
+                        f.write(audio_bytes)
+                    
+                    st.write(f"🔍 DEBUG: Audio saved to {debug_path} for review")
+                    st.write(f"🔍 DEBUG: Audio size: {len(audio_bytes)} bytes")
+                    
+                    # Transcribe question (auto-detect language)
+                    question = speech_to_text(audio_bytes, language=None)
                     
                     st.write(f"**Your question:** {question}")
-                    st.write(f"🔍 DEBUG: Transcription length: {len(question)} chars")
+                    st.info(f"💡 If transcription is wrong, play the audio file: {debug_path}")
                 
                 with st.spinner("🤖 Getting answer..."):
                     # Get answer from chatbot
@@ -531,23 +444,19 @@ def audio_guide_page():
                     )
                     
                     st.write(f"**Answer:** {answer}")
-                    st.write(f"🔍 DEBUG: Answer length: {len(answer)} chars")
                     
                     # Update chat history
                     st.session_state.chat_history.append({"role": "user", "content": question})
                     st.session_state.chat_history.append({"role": "assistant", "content": answer})
                 
                 with st.spinner("🔊 Generating audio answer..."):
-                    st.write(f"🔍 DEBUG: Calling text_to_speech with {len(answer)} chars")
                     # Generate audio answer
-                    answer_audio = text_to_speech(answer)
+                    answer_audio = text_to_speech(answer, timeout=60)
                     
-                    st.write(f"🔍 DEBUG: Audio result: {answer_audio is not None}")
                     if answer_audio:
                         st.write(f"🔍 DEBUG: Audio size: {len(answer_audio)} bytes")
                         
                         # Save to file
-                        from pathlib import Path
                         import uuid
                         audio_dir = Path("audio_outputs")
                         audio_dir.mkdir(exist_ok=True)
@@ -567,15 +476,106 @@ def audio_guide_page():
                         
                         # Create HTML5 audio player
                         audio_html = f"""
-                        <audio controls style="width: 100%;">
+                        <audio controls style="width: 100%;" autoplay>
                             <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
                             Your browser does not support the audio element.
                         </audio>
                         """
                         st.markdown(audio_html, unsafe_allow_html=True)
-                        st.success("🔊 Audio player loaded - click play to listen!")
+                        st.success("🔊 Audio answer playing!")
                     else:
-                        st.error("❌ Failed to generate audio answer. Check terminal for errors.")
+                        st.error("❌ Failed to generate audio answer.")
+            
+        #     st.markdown("---")
+        #     st.markdown("### 📁 Alternative: Upload Audio File")
+        #     st.caption("If live recording doesn't work, you can upload a pre-recorded file")
+        
+        # else:
+        #     # Fallback if audio-recorder not installed
+        #     st.warning("⚠️ Live recording not available. Please install: `pip install streamlit-audio-recorder`")
+        #     st.info("""
+        #     **For now, upload a recorded audio file:**
+        #     1. Record your question using your phone or computer
+        #     2. Save as MP3 or WAV
+        #     3. Upload below
+        #     """)
+        
+        # # Audio upload (backup method or if recorder not available)
+        # audio_file = st.file_uploader(
+        #     "Upload audio file (optional backup method)",
+        #     type=['mp3', 'wav'],
+        #     help="Backup option",
+        #     key="audio_question_upload"
+        # )
+        
+        # if audio_file:
+        #     st.audio(audio_file, format="audio/mp3")
+            
+        #     if st.button("🎤 Process Question", type="primary"):
+        #         with st.spinner("🎤 Transcribing question..."):
+        #             # Transcribe question
+        #             audio_bytes = audio_file.getvalue()
+        #             st.write(f"🔍 DEBUG: Audio file size: {len(audio_bytes)} bytes")
+        #             question = speech_to_text(audio_bytes, language="en")
+                    
+        #             st.write(f"**Your question:** {question}")
+        #             st.write(f"🔍 DEBUG: Transcription length: {len(question)} chars")
+                
+        #         with st.spinner("🤖 Getting answer..."):
+        #             # Get answer from chatbot
+        #             answer = chat_with_artwork(
+        #                 question=question,
+        #                 artwork_description=st.session_state.description,
+        #                 metadata=st.session_state.metadata,
+        #                 chat_history=st.session_state.chat_history
+        #             )
+                    
+        #             st.write(f"**Answer:** {answer}")
+        #             st.write(f"🔍 DEBUG: Answer length: {len(answer)} chars")
+                    
+        #             # Update chat history
+        #             st.session_state.chat_history.append({"role": "user", "content": question})
+        #             st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                
+        #         with st.spinner("🔊 Generating audio answer..."):
+        #             st.write(f"🔍 DEBUG: Calling text_to_speech with {len(answer)} chars")
+        #             # Generate audio answer
+        #             answer_audio = text_to_speech(answer)
+                    
+        #             st.write(f"🔍 DEBUG: Audio result: {answer_audio is not None}")
+        #             if answer_audio:
+        #                 st.write(f"🔍 DEBUG: Audio size: {len(answer_audio)} bytes")
+                        
+        #                 # Save to file
+        #                 from pathlib import Path
+        #                 import uuid
+        #                 audio_dir = Path("audio_outputs")
+        #                 audio_dir.mkdir(exist_ok=True)
+        #                 answer_id = str(uuid.uuid4())[:8]
+        #                 audio_path = audio_dir / f"answer_{answer_id}.mp3"
+                        
+        #                 with open(audio_path, "wb") as f:
+        #                     f.write(answer_audio)
+                        
+        #                 st.markdown("### 🔊 Audio Answer:")
+                        
+        #                 # Read audio and convert to base64
+        #                 import base64
+        #                 with open(audio_path, "rb") as f:
+        #                     audio_bytes_read = f.read()
+        #                 audio_b64 = base64.b64encode(audio_bytes_read).decode()
+                        
+        #                 # Create HTML5 audio player
+        #                 audio_html = f"""
+        #                 <audio controls style="width: 100%;">
+        #                     <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+        #                     Your browser does not support the audio element.
+        #                 </audio>
+        #                 """
+        #                 st.markdown(audio_html, unsafe_allow_html=True)
+        #                 st.success("🔊 Audio player loaded - click play to listen!")
+        #             else:
+        #                 st.error("❌ Failed to generate audio answer. Check terminal for errors.")
         
         # Display chat history
         if st.session_state.chat_history:
@@ -697,25 +697,25 @@ def visual_guide_page():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Audio metadata option
-                if st.session_state.metadata_audio_path:
-                    from pathlib import Path
-                    audio_file = Path(st.session_state.metadata_audio_path)
-                    if audio_file.exists():
-                        st.markdown("#### 🔊 Listen to metadata")
+                # # Audio metadata option
+                # if st.session_state.metadata_audio_path:
+                #     from pathlib import Path
+                #     audio_file = Path(st.session_state.metadata_audio_path)
+                #     if audio_file.exists():
+                #         st.markdown("#### 🔊 Listen to metadata")
                         
-                        import base64
-                        with open(audio_file, "rb") as f:
-                            audio_bytes = f.read()
-                        audio_b64 = base64.b64encode(audio_bytes).decode()
+                #         import base64
+                #         with open(audio_file, "rb") as f:
+                #             audio_bytes = f.read()
+                #         audio_b64 = base64.b64encode(audio_bytes).decode()
                         
-                        audio_html = f"""
-                        <audio controls style="width: 100%;">
-                            <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
-                            Your browser does not support the audio element.
-                        </audio>
-                        """
-                        st.markdown(audio_html, unsafe_allow_html=True)
+                #         audio_html = f"""
+                #         <audio controls style="width: 100%;">
+                #             <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mp3">
+                #             Your browser does not support the audio element.
+                #         </audio>
+                #         """
+                #         st.markdown(audio_html, unsafe_allow_html=True)
             else:
                 st.warning("⚠️ Metadata not available. Please try analyzing again.")
         
