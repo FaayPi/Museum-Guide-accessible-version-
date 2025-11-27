@@ -3,3 +3,4 @@ test_*.py
 test_*.jpg
 test_*.mp3
 .env
+.env
