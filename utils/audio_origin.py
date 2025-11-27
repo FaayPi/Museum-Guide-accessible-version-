@@ -28,33 +28,13 @@ def text_to_speech(text, timeout=30):
         response = client.audio.speech.create(
             model=config.TTS_MODEL,
             voice=config.TTS_VOICE,
-            input=text,
-            response_format="mp3"  # Explicitly request MP3
+            input=text
         )
         
-        # Get audio bytes - handle both streaming and content response
-        if hasattr(response, 'content'):
-            audio_bytes = response.content
-        elif hasattr(response, 'read'):
-            audio_bytes = response.read()
-        else:
-            # Try to get content as bytes
-            audio_bytes = bytes(response)
-        
-        if audio_bytes and len(audio_bytes) > 0:
-            print(f"TTS: Successfully generated {len(audio_bytes)} bytes of audio")
-            
-            # Verify it's valid MP3
-            if audio_bytes[:3] == b'ID3' or audio_bytes[:2] in [b'\xff\xfb', b'\xff\xf3', b'\xff\xf2']:
-                print("TTS: Audio format verified as MP3")
-                return audio_bytes
-            else:
-                print(f"TTS Warning: Audio format unknown - first bytes: {audio_bytes[:10].hex()}")
-                # Return anyway - might still work
-                return audio_bytes
-        else:
-            print("TTS Error: No audio bytes generated")
-            return None
+        # Return audio bytes
+        audio_bytes = response.content
+        print(f"TTS: Successfully generated {len(audio_bytes)} bytes of audio")
+        return audio_bytes
         
     except Exception as e:
         print(f"TTS Error: {str(e)}")
