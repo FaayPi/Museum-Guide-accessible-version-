@@ -61,7 +61,9 @@ def analyze_artwork(image_file):
         
     except Exception as e:
         print(f"Vision API Error: {str(e)}")
-        return None  # Return None instead of error string
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def get_metadata(image_file):
