@@ -206,32 +206,7 @@ def format_chat_history(chat_history):
 def create_audio_guide_interface():
     """Create Audio-Guide interface (accessible mode)"""
 
-    with gr.Blocks(
-        title="Audio-Guide (Accessible Mode)",
-        css="""
-        .gradio-container {
-            background-color: #000000 !important;
-            color: #FFFF00 !important;
-        }
-        .gr-button {
-            background-color: #FFFF00 !important;
-            color: #000000 !important;
-            font-size: 24px !important;
-            font-weight: bold !important;
-            padding: 20px 40px !important;
-            border: 3px solid #FFFFFF !important;
-            min-height: 60px !important;
-        }
-        .gr-button:hover {
-            background-color: #FFFFFF !important;
-            border: 3px solid #FFFF00 !important;
-        }
-        label, .gr-form, .gr-box {
-            color: #FFFF00 !important;
-            font-size: 20px !important;
-        }
-        """
-    ) as demo:
+    with gr.Blocks(title="Audio-Guide (Accessible Mode)") as demo:
 
         gr.Markdown("# Audio-Guide (Accessible Mode)")
         gr.Markdown("For blind and visually impaired visitors - Fully accessible with audio feedback")
@@ -249,35 +224,118 @@ def create_audio_guide_interface():
             analyze_btn = gr.Button("Analyze Artwork", variant="primary", size="lg")
             status_output = gr.Textbox(label="Status", interactive=False)
 
-            # Outputs (hidden initially)
-            description_audio_output = gr.Audio(label="Description Audio", autoplay=True, visible=True)
-            metadata_audio_output = gr.Audio(label="Artwork Information Audio", autoplay=False, visible=True)
+            # Outputs - Metadata plays first
+            gr.Markdown("### Artwork Information")
+            metadata_audio_output = gr.Audio(
+                label="Metadata Audio (plays first)",
+                autoplay=True,
+                waveform_options=gr.WaveformOptions(
+                    waveform_color="#3b82f6",
+                    waveform_progress_color="#1e40af",
+                    show_recording_waveform=False,
+                    skip_length=5
+                )
+            )
+
+            gr.Markdown("---")
+            gr.Markdown("### Description")
+            description_audio_output = gr.Audio(
+                label="Description Audio (plays after metadata)",
+                autoplay=True,
+                waveform_options=gr.WaveformOptions(
+                    waveform_color="#3b82f6",
+                    waveform_progress_color="#1e40af",
+                    show_recording_waveform=False,
+                    skip_length=5
+                )
+            )
 
         with gr.Tab("Step 2: Ask Questions (Voice)"):
             gr.Markdown("## Voice Q&A")
             gr.Markdown("Record your question and get an audio answer")
 
-            audio_question = gr.Audio(label="Record Your Question", source="microphone", type="filepath")
+            audio_question = gr.Audio(label="Record Your Question", sources=["microphone"], type="filepath")
             process_voice_btn = gr.Button("Get Answer", variant="primary", size="lg")
 
             voice_status = gr.Textbox(label="Question & Answer", interactive=False, lines=5)
-            answer_audio_output = gr.Audio(label="Audio Answer", autoplay=True)
+            answer_audio_output = gr.Audio(
+                label="Audio Answer",
+                autoplay=True,
+                waveform_options=gr.WaveformOptions(
+                    waveform_color="#3b82f6",
+                    waveform_progress_color="#1e40af",
+                    show_recording_waveform=False,
+                    skip_length=5
+                )
+            )
 
         # Button click handlers
         def analyze_and_update(image):
-            desc, meta, desc_audio, meta_audio, status = analyze_image(image)
-            return desc, meta, desc_audio, meta_audio, status
+            try:
+                print("DEBUG: Starting analyze_and_update...")
+                desc, meta, desc_audio, meta_audio, status = analyze_image(image)
+                print(f"DEBUG: analyze_image returned - desc: {bool(desc)}, meta: {bool(meta)}")
+                print(f"DEBUG: Audio paths - desc: {desc_audio}, meta: {meta_audio}")
 
+                # Return metadata audio immediately, description audio later
+                print("DEBUG: Returning values - metadata audio will autoplay...")
+                return desc, meta, meta_audio, None, status, desc_audio, meta_audio
+            except Exception as e:
+                print(f"ERROR in analyze_and_update: {e}")
+                import traceback
+                traceback.print_exc()
+                return None, None, None, None, f"Error: {str(e)}", None, None
+
+        def load_description_audio(desc_audio_path, meta_audio_path):
+            """Load description audio after metadata audio finishes"""
+            try:
+                print(f"DEBUG: load_description_audio called - desc: {desc_audio_path}, meta: {meta_audio_path}")
+                import time
+                if meta_audio_path and desc_audio_path:
+                    # Calculate metadata audio duration
+                    try:
+                        from pydub import AudioSegment
+                        print(f"DEBUG: Loading metadata audio to calculate duration...")
+                        audio = AudioSegment.from_mp3(meta_audio_path)
+                        duration_seconds = len(audio) / 1000.0
+                        print(f"DEBUG: Metadata duration: {duration_seconds:.2f}s, waiting...")
+                        # Wait for metadata to finish plus 1 second buffer
+                        time.sleep(duration_seconds + 1)
+                    except Exception as e:
+                        # Fallback: wait 3 seconds if we can't get duration (metadata is shorter)
+                        print(f"DEBUG: Could not calculate duration ({e}), waiting 3s...")
+                        time.sleep(3)
+
+                # Return description audio path (will autoplay because of autoplay=True)
+                print(f"DEBUG: Returning description audio path for autoplay...")
+                return desc_audio_path
+            except Exception as e:
+                print(f"ERROR in load_description_audio: {e}")
+                import traceback
+                traceback.print_exc()
+                return None
+
+        # State to store audio paths temporarily
+        description_audio_path_state = gr.State(None)
+        metadata_audio_path_state = gr.State(None)
+
+        # First: Analyze and play metadata audio, then description audio
         analyze_btn.click(
             fn=analyze_and_update,
             inputs=[image_input],
             outputs=[
                 description_state,
                 metadata_state,
-                description_audio_output,
                 metadata_audio_output,
-                status_output
+                description_audio_output,
+                status_output,
+                description_audio_path_state,
+                metadata_audio_path_state
             ]
+        ).then(
+            fn=load_description_audio,
+            inputs=[description_audio_path_state, metadata_audio_path_state],
+            outputs=[description_audio_output]
         )
 
         process_voice_btn.click(
