@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).parent))
 from utils.vision import analyze_artwork, get_metadata
 from utils.audio import text_to_speech, speech_to_text
 from utils.chat import chat_with_artwork
+from utils.analyze_with_rag import analyze_artwork_with_rag_fallback, format_metadata_text
 import config
 
 # Create audio_outputs directory
@@ -47,7 +48,7 @@ def reset_session():
 
 def analyze_image(image):
     """
-    Analyze image and generate audio outputs
+    Analyze image and generate audio outputs with RAG fallback
     Returns: (description, metadata, description_audio, metadata_audio, status_message)
     """
     if image is None:
@@ -59,21 +60,28 @@ def analyze_image(image):
         image.save(img_byte_arr, format='PNG')
         image_bytes = img_byte_arr.getvalue()
 
-        # Step 1: Analyze artwork
-        description = analyze_artwork(image_bytes)
+        # Step 1: Analyze artwork with RAG fallback
+        print("\n=== Starting artwork analysis with RAG fallback ===")
+        description, metadata, from_rag = analyze_artwork_with_rag_fallback(image)
 
         if not description:
             return None, None, None, None, "Unable to analyze the artwork. Please try again."
 
-        # Step 2: Extract metadata
-        metadata = get_metadata(image_bytes)
         if not metadata:
             return None, None, None, None, "Unable to retrieve artwork information. Please check your connection and try again."
+
+        # Add indicator if data came from RAG
+        if from_rag:
+            print("✓ Using data from RAG database (Special Exhibition)")
+            status_message = "Analysis complete! This artwork is from our Special Exhibition by Fee Pieper."
+        else:
+            print("✓ Using data from OpenAI Vision")
+            status_message = "Analysis complete! Audio ready to play."
 
         # Generate unique session ID
         session_id = str(uuid.uuid4())[:8]
 
-        # Step 3: Generate description audio
+        # Step 2: Generate description audio
         description_audio = text_to_speech(description, timeout=60)
         description_audio_path = None
         if description_audio:
@@ -82,9 +90,10 @@ def analyze_image(image):
                 f.write(description_audio)
             description_audio_path = str(audio_path)
 
-        # Step 4: Generate metadata audio
+        # Step 3: Generate metadata audio
+        source_text = " from our Special Exhibition" if from_rag else ""
         metadata_text = f"""
-Artist: {metadata.get('artist', 'Unknown')}.
+Artist: {metadata.get('artist', 'Unknown')}{source_text}.
 Title: {metadata.get('title', 'Unknown')}.
 Year: {metadata.get('year', 'Unknown')}.
 Period: {metadata.get('period', 'Unknown')}.
@@ -97,7 +106,7 @@ Period: {metadata.get('period', 'Unknown')}.
                 f.write(metadata_audio)
             metadata_audio_path = str(audio_path)
 
-        return description, metadata, description_audio_path, metadata_audio_path, "Analysis complete! Audio ready to play."
+        return description, metadata, description_audio_path, metadata_audio_path, status_message
 
     except Exception as e:
         print(f"ERROR in analyze_image: {e}")
