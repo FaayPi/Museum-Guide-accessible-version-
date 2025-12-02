@@ -8,6 +8,9 @@ import io
 from pathlib import Path
 import sys
 import uuid
+import time
+import concurrent.futures
+from PIL import Image
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent))
@@ -16,12 +19,18 @@ sys.path.append(str(Path(__file__).parent))
 from utils.vision import analyze_artwork, get_metadata
 from utils.audio import text_to_speech, speech_to_text
 from utils.chat import chat_with_artwork
-from utils.analyze_with_rag import analyze_artwork_with_rag_fallback, format_metadata_text
+from utils.analyze_with_rag import analyze_artwork_with_rag_fallback, format_metadata_text, get_rag_instance
 import config
 
 # Create audio_outputs directory
 OUTPUT_DIR = Path("audio_outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+# ⚡ SPEED OPTIMIZATION: Pre-initialize RAG database at startup
+print("🔄 Pre-loading RAG database...")
+startup_time = time.time()
+get_rag_instance()
+print(f"✅ RAG database ready ({time.time() - startup_time:.2f}s)")
 
 # Global session state (will be replaced by Gradio's state management)
 session_data = {
@@ -50,11 +59,24 @@ def analyze_image(image):
     """
     Analyze image and generate audio outputs with RAG fallback
     Returns: (description, metadata, description_audio, metadata_audio, status_message)
+
+    ⚡ OPTIMIZED with:
+    - Image resolution reduction (faster API calls)
+    - Parallel TTS generation (2-4 seconds faster)
+    - Performance timing
     """
     if image is None:
         return None, None, None, None, "Please upload an image first."
 
     try:
+        start_time = time.time()
+
+        # ⚡ OPTIMIZATION 1: Resize large images before processing
+        max_size = 1024
+        if max(image.size) > max_size:
+            print(f"⚡ Resizing image from {image.size} to fit {max_size}px")
+            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
         # Convert PIL Image to bytes
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format='PNG')
@@ -73,7 +95,7 @@ def analyze_image(image):
         # Add indicator if data came from RAG
         if from_rag:
             print("✓ Using data from RAG database (Special Exhibition)")
-            status_message = "Analysis complete! This artwork is from our Special Exhibition by Fee Pieper."
+            status_message = "Analysis complete! This artwork is from our Special Exhibition."
         else:
             print("✓ Using data from OpenAI Vision")
             status_message = "Analysis complete! Audio ready to play."
@@ -81,16 +103,7 @@ def analyze_image(image):
         # Generate unique session ID
         session_id = str(uuid.uuid4())[:8]
 
-        # Step 2: Generate description audio
-        description_audio = text_to_speech(description, timeout=60)
-        description_audio_path = None
-        if description_audio:
-            audio_path = OUTPUT_DIR / f"description_{session_id}.mp3"
-            with open(audio_path, "wb") as f:
-                f.write(description_audio)
-            description_audio_path = str(audio_path)
-
-        # Step 3: Generate metadata audio
+        # Prepare metadata text
         source_text = " from our Special Exhibition" if from_rag else ""
         metadata_text = f"""
 Artist: {metadata.get('artist', 'Unknown')}{source_text}.
@@ -98,13 +111,40 @@ Title: {metadata.get('title', 'Unknown')}.
 Year: {metadata.get('year', 'Unknown')}.
 Period: {metadata.get('period', 'Unknown')}.
 """
-        metadata_audio = text_to_speech(metadata_text, timeout=60)
+
+        # ⚡ OPTIMIZATION 2: Generate both audio files in PARALLEL
+        print("⚡ Generating audio files in parallel...")
+        tts_start = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both TTS tasks simultaneously
+            future_description = executor.submit(text_to_speech, description, 60)
+            future_metadata = executor.submit(text_to_speech, metadata_text, 60)
+
+            # Wait for both to complete
+            description_audio = future_description.result()
+            metadata_audio = future_metadata.result()
+
+        print(f"⚡ TTS generation completed in {time.time() - tts_start:.2f}s (parallel)")
+
+        # Save audio files
+        description_audio_path = None
+        if description_audio:
+            audio_path = OUTPUT_DIR / f"description_{session_id}.mp3"
+            with open(audio_path, "wb") as f:
+                f.write(description_audio)
+            description_audio_path = str(audio_path)
+
         metadata_audio_path = None
         if metadata_audio:
             audio_path = OUTPUT_DIR / f"metadata_{session_id}.mp3"
             with open(audio_path, "wb") as f:
                 f.write(metadata_audio)
             metadata_audio_path = str(audio_path)
+
+        # Performance timing
+        total_time = time.time() - start_time
+        print(f"⏱️  Total analysis time: {total_time:.2f}s")
 
         return description, metadata, description_audio_path, metadata_audio_path, status_message
 
@@ -118,13 +158,13 @@ Period: {metadata.get('period', 'Unknown')}.
 def process_voice_question(audio_file, description, metadata, chat_history):
     """
     Process voice question and return audio answer
-    Returns: (chat_history, answer_audio, status)
+    Returns: (chat_history, answer_audio)
     """
     if audio_file is None:
-        return chat_history, None, "Please record a question first."
+        return chat_history, None
 
     if description is None or metadata is None:
-        return chat_history, None, "Please analyze an artwork first."
+        return chat_history, None
 
     try:
         # Read audio file
@@ -134,19 +174,26 @@ def process_voice_question(audio_file, description, metadata, chat_history):
         # Transcribe question
         question = speech_to_text(audio_bytes, language=None)
         if not question:
-            return chat_history, None, "Unable to transcribe audio. Please try again."
+            return chat_history, None
+
+        # Convert old-style chat history to new format for chat_with_artwork
+        old_format_history = []
+        for user_msg, bot_msg in chat_history:
+            if user_msg:
+                old_format_history.append({"role": "user", "content": user_msg})
+            if bot_msg:
+                old_format_history.append({"role": "assistant", "content": bot_msg})
 
         # Get answer from chatbot
         answer = chat_with_artwork(
             question=question,
             artwork_description=description,
             metadata=metadata,
-            chat_history=chat_history
+            chat_history=old_format_history
         )
 
-        # Update chat history
-        chat_history.append({"role": "user", "content": question})
-        chat_history.append({"role": "assistant", "content": answer})
+        # Update chat history (Gradio Chatbot format: list of tuples)
+        chat_history.append((question, answer))
 
         # Generate audio answer
         answer_audio = text_to_speech(answer, timeout=60)
@@ -159,57 +206,51 @@ def process_voice_question(audio_file, description, metadata, chat_history):
                 f.write(answer_audio)
             answer_audio_path = str(audio_path)
 
-        return chat_history, answer_audio_path, f"Question: {question}\n\nAnswer: {answer}"
+        return chat_history, answer_audio_path
 
     except Exception as e:
         print(f"Error processing voice question: {e}")
-        return chat_history, None, f"Error: {str(e)}"
+        return chat_history, None
 
 
 def process_text_question(question, description, metadata, chat_history):
     """
     Process text question and return answer
-    Returns: (updated_chat_history, answer)
+    Returns: (updated_chat_history, clear_input)
     """
     if not question or question.strip() == "":
         return chat_history, ""
 
     if description is None or metadata is None:
-        return chat_history, "Please analyze an artwork first."
+        chat_history.append((question, "Please analyze an artwork first."))
+        return chat_history, ""
 
     try:
+        # Convert chat history from Gradio format to old format for chat_with_artwork
+        old_format_history = []
+        for user_msg, bot_msg in chat_history:
+            if user_msg:
+                old_format_history.append({"role": "user", "content": user_msg})
+            if bot_msg:
+                old_format_history.append({"role": "assistant", "content": bot_msg})
+
         # Get answer from chatbot
         answer = chat_with_artwork(
             question=question,
             artwork_description=description,
             metadata=metadata,
-            chat_history=chat_history
+            chat_history=old_format_history
         )
 
-        # Update chat history
-        chat_history.append({"role": "user", "content": question})
-        chat_history.append({"role": "assistant", "content": answer})
+        # Update chat history (Gradio Chatbot format: list of tuples)
+        chat_history.append((question, answer))
 
-        return chat_history, answer
+        return chat_history, ""  # Return empty string to clear input
 
     except Exception as e:
         print(f"Error processing text question: {e}")
-        return chat_history, f"Error: {str(e)}"
-
-
-def format_chat_history(chat_history):
-    """Format chat history for display"""
-    if not chat_history:
-        return ""
-
-    formatted = []
-    for msg in chat_history:
-        if msg['role'] == 'user':
-            formatted.append(f"**You:** {msg['content']}")
-        else:
-            formatted.append(f"**Assistant:** {msg['content']}")
-
-    return "\n\n---\n\n".join(formatted)
+        chat_history.append((question, f"Error: {str(e)}"))
+        return chat_history, ""
 
 
 def create_audio_guide_interface():
@@ -225,7 +266,7 @@ def create_audio_guide_interface():
         metadata_state = gr.State(None)
         chat_history_state = gr.State([])
 
-        with gr.Tab("Step 1: Upload & Analyze"):
+        with gr.Tab("Step 1: Upload & Analyze") as tab1:
             gr.Markdown("## Upload Artwork Photo")
             gr.Markdown("Upload a photo of the artwork. It will be automatically analyzed and audio will be generated.")
 
@@ -233,10 +274,10 @@ def create_audio_guide_interface():
             analyze_btn = gr.Button("Analyze Artwork", variant="primary", size="lg")
             status_output = gr.Textbox(label="Status", interactive=False)
 
-            # Outputs - Metadata plays first
+            # Combined audio output (metadata + description)
             gr.Markdown("### Artwork Information")
-            metadata_audio_output = gr.Audio(
-                label="Metadata Audio (plays first)",
+            combined_audio_output = gr.Audio(
+                label="Audio Guide (Metadata followed by Description)",
                 autoplay=True,
                 waveform_options=gr.WaveformOptions(
                     waveform_color="#3b82f6",
@@ -246,27 +287,13 @@ def create_audio_guide_interface():
                 )
             )
 
-            gr.Markdown("---")
-            gr.Markdown("### Description")
-            description_audio_output = gr.Audio(
-                label="Description Audio (plays after metadata)",
-                autoplay=True,
-                waveform_options=gr.WaveformOptions(
-                    waveform_color="#3b82f6",
-                    waveform_progress_color="#1e40af",
-                    show_recording_waveform=False,
-                    skip_length=5
-                )
-            )
-
-        with gr.Tab("Step 2: Ask Questions (Voice)"):
+        with gr.Tab("Step 2: Ask Questions (Voice)") as tab2:
             gr.Markdown("## Voice Q&A")
-            gr.Markdown("Record your question and get an audio answer")
+            gr.Markdown("Record your question and get an audio answer.")
 
             audio_question = gr.Audio(label="Record Your Question", sources=["microphone"], type="filepath")
             process_voice_btn = gr.Button("Get Answer", variant="primary", size="lg")
 
-            voice_status = gr.Textbox(label="Question & Answer", interactive=False, lines=5)
             answer_audio_output = gr.Audio(
                 label="Audio Answer",
                 autoplay=True,
@@ -286,71 +313,72 @@ def create_audio_guide_interface():
                 print(f"DEBUG: analyze_image returned - desc: {bool(desc)}, meta: {bool(meta)}")
                 print(f"DEBUG: Audio paths - desc: {desc_audio}, meta: {meta_audio}")
 
-                # Return metadata audio immediately, description audio later
-                print("DEBUG: Returning values - metadata audio will autoplay...")
-                return desc, meta, meta_audio, None, status, desc_audio, meta_audio
+                # Combine both audio files into one
+                combined_audio_path = None
+                if meta_audio and desc_audio:
+                    try:
+                        from pydub import AudioSegment
+                        import uuid
+
+                        print("DEBUG: Combining audio files...")
+                        # Load both audio files
+                        metadata_audio = AudioSegment.from_mp3(meta_audio)
+                        description_audio = AudioSegment.from_mp3(desc_audio)
+
+                        # Add 1 second silence between them
+                        silence = AudioSegment.silent(duration=1000)  # 1000ms = 1s
+
+                        # Combine: metadata + silence + description
+                        combined = metadata_audio + silence + description_audio
+
+                        # Save combined audio
+                        session_id = str(uuid.uuid4())[:8]
+                        combined_path = OUTPUT_DIR / f"combined_{session_id}.mp3"
+                        combined.export(combined_path, format="mp3")
+                        combined_audio_path = str(combined_path)
+                        print(f"DEBUG: Combined audio saved to {combined_audio_path}")
+
+                    except Exception as e:
+                        print(f"ERROR combining audio: {e}")
+                        # Fallback to just metadata audio if combining fails
+                        combined_audio_path = meta_audio
+
+                return desc, meta, combined_audio_path, status
             except Exception as e:
                 print(f"ERROR in analyze_and_update: {e}")
                 import traceback
                 traceback.print_exc()
-                return None, None, None, None, f"Error: {str(e)}", None, None
+                return None, None, None, f"Error: {str(e)}"
 
-        def load_description_audio(desc_audio_path, meta_audio_path):
-            """Load description audio after metadata audio finishes"""
-            try:
-                print(f"DEBUG: load_description_audio called - desc: {desc_audio_path}, meta: {meta_audio_path}")
-                import time
-                if meta_audio_path and desc_audio_path:
-                    # Calculate metadata audio duration
-                    try:
-                        from pydub import AudioSegment
-                        print(f"DEBUG: Loading metadata audio to calculate duration...")
-                        audio = AudioSegment.from_mp3(meta_audio_path)
-                        duration_seconds = len(audio) / 1000.0
-                        print(f"DEBUG: Metadata duration: {duration_seconds:.2f}s, waiting...")
-                        # Wait for metadata to finish plus 1 second buffer
-                        time.sleep(duration_seconds + 1)
-                    except Exception as e:
-                        # Fallback: wait 3 seconds if we can't get duration (metadata is shorter)
-                        print(f"DEBUG: Could not calculate duration ({e}), waiting 3s...")
-                        time.sleep(3)
-
-                # Return description audio path (will autoplay because of autoplay=True)
-                print(f"DEBUG: Returning description audio path for autoplay...")
-                return desc_audio_path
-            except Exception as e:
-                print(f"ERROR in load_description_audio: {e}")
-                import traceback
-                traceback.print_exc()
-                return None
-
-        # State to store audio paths temporarily
-        description_audio_path_state = gr.State(None)
-        metadata_audio_path_state = gr.State(None)
-
-        # First: Analyze and play metadata audio, then description audio
+        # Analyze and play combined audio
         analyze_btn.click(
             fn=analyze_and_update,
             inputs=[image_input],
             outputs=[
                 description_state,
                 metadata_state,
-                metadata_audio_output,
-                description_audio_output,
-                status_output,
-                description_audio_path_state,
-                metadata_audio_path_state
+                combined_audio_output,
+                status_output
             ]
-        ).then(
-            fn=load_description_audio,
-            inputs=[description_audio_path_state, metadata_audio_path_state],
-            outputs=[description_audio_output]
         )
 
         process_voice_btn.click(
             fn=process_voice_question,
             inputs=[audio_question, description_state, metadata_state, chat_history_state],
-            outputs=[chat_history_state, answer_audio_output, voice_status]
+            outputs=[chat_history_state, answer_audio_output]
+        )
+
+        # Tab switching handlers - stop audio when switching tabs
+        tab1.select(
+            fn=lambda: None,  # Clear audio in tab2
+            inputs=[],
+            outputs=[answer_audio_output]
+        )
+
+        tab2.select(
+            fn=lambda: None,  # Clear audio in tab1
+            inputs=[],
+            outputs=[combined_audio_output]
         )
 
     return demo
@@ -374,11 +402,10 @@ def create_visual_guide_interface():
                 # Image upload and display
                 image_input = gr.Image(label="Upload Artwork Image", type="pil")
                 analyze_btn = gr.Button("Analyze Artwork", variant="primary")
-                status_output = gr.Textbox(label="Status", interactive=False)
 
                 # Description section
                 gr.Markdown("### Artwork Description")
-                description_text = gr.Textbox(label="Description", lines=5, interactive=False)
+                description_text = gr.Markdown("")
                 description_audio = gr.Audio(label="Audio Description")
 
             with gr.Column(scale=1):
@@ -388,13 +415,10 @@ def create_visual_guide_interface():
                 title_output = gr.Textbox(label="Title", interactive=False)
                 year_output = gr.Textbox(label="Year", interactive=False)
                 period_output = gr.Textbox(label="Period", interactive=False)
-                confidence_output = gr.Textbox(label="Confidence", interactive=False)
 
         # Chat section
         gr.Markdown("---")
         gr.Markdown("### Chatbot")
-
-        chat_display = gr.Markdown(label="Chat History")
 
         with gr.Row():
             question_input = gr.Textbox(
@@ -404,24 +428,21 @@ def create_visual_guide_interface():
             )
             send_btn = gr.Button("Send", variant="primary", scale=1)
 
-        answer_output = gr.Textbox(label="Answer", lines=3, interactive=False)
-
         # Button handlers
         def analyze_and_display(image):
             desc, meta, desc_audio, meta_audio, status = analyze_image(image)
 
             if meta:
                 return (
-                    desc, meta, desc_audio, status,
+                    desc, meta, desc_audio,
                     desc if desc else "",
                     meta.get('artist', 'Unknown'),
                     meta.get('title', 'Unknown'),
                     meta.get('year', 'Unknown'),
-                    meta.get('period', 'Unknown'),
-                    meta.get('confidence', 'unknown')
+                    meta.get('period', 'Unknown')
                 )
             else:
-                return desc, meta, desc_audio, status, "", "", "", "", "", ""
+                return desc, meta, desc_audio, "", "", "", "", ""
 
         analyze_btn.click(
             fn=analyze_and_display,
@@ -430,25 +451,25 @@ def create_visual_guide_interface():
                 description_state,
                 metadata_state,
                 description_audio,
-                status_output,
                 description_text,
                 artist_output,
                 title_output,
                 year_output,
-                period_output,
-                confidence_output
+                period_output
             ]
         )
 
-        def handle_question(question, desc, meta, chat_hist):
-            new_hist, answer = process_text_question(question, desc, meta, chat_hist)
-            formatted_chat = format_chat_history(new_hist)
-            return new_hist, formatted_chat, answer, ""
-
         send_btn.click(
-            fn=handle_question,
+            fn=process_text_question,
             inputs=[question_input, description_state, metadata_state, chat_history_state],
-            outputs=[chat_history_state, chat_display, answer_output, question_input]
+            outputs=[chat_history_state, question_input]
+        )
+
+        # Also allow pressing Enter to send
+        question_input.submit(
+            fn=process_text_question,
+            inputs=[question_input, description_state, metadata_state, chat_history_state],
+            outputs=[chat_history_state, question_input]
         )
 
     return demo

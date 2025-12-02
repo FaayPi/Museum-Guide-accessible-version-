@@ -262,15 +262,15 @@ Title:"""
             include_metadata=True
         )
 
-        # Check if we have a very high similarity match (>= 0.90 indicates likely exact match)
+        # Check if we have a very high similarity match (>=85 indicates likely exact match)
         if results['matches'] and len(results['matches']) > 0:
             top_match = results['matches'][0]
             similarity = top_match['score']
 
             print(f"Top match similarity: {similarity:.3f}")
 
-            # Threshold for exact match - adjusted to 0.90 based on testing
-            if similarity >= 0.90:
+            # Threshold for exact match - adjusted to 0.85 based on testing
+            if similarity >= 0.85:
                 print(f"✓ Exact match found: {top_match['metadata']['title']}")
                 print(f"  Artist: {top_match['metadata']['artist']}")
                 print(f"  Year: {top_match['metadata']['year']}")
@@ -281,7 +281,7 @@ Title:"""
                     'is_exact_match': True
                 }
             else:
-                print(f"No exact match found (similarity: {similarity:.3f} < 0.90)")
+                print(f"No exact match found (similarity: {similarity:.3f} < 0.85)")
 
         return None
 
