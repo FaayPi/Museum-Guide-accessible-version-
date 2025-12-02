@@ -240,9 +240,9 @@ Title:"""
         """
         print("\n=== RAG Fallback: Searching for exact match ===")
 
-        # Get description of query image
-        print("Analyzing query image...")
-        query_description = analyze_artwork(query_image_bytes)
+        # Get description of query image using FAST mini model for RAG matching
+        print("Analyzing query image with gpt-4o-mini (fast RAG search)...")
+        query_description = self._analyze_with_mini_model(query_image_bytes)
 
         if not query_description:
             print("Failed to analyze query image")
@@ -284,6 +284,46 @@ Title:"""
                 print(f"No exact match found (similarity: {similarity:.3f} < 0.85)")
 
         return None
+
+    def _analyze_with_mini_model(self, image_bytes):
+        """
+        Fast artwork analysis using GPT-4o-mini for RAG matching.
+        This is 5-8x faster than full analysis and sufficient for similarity search.
+
+        Args:
+            image_bytes: Image data as bytes
+
+        Returns:
+            str: Brief description of the artwork
+        """
+        import base64
+
+        b64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # 5-8x faster than gpt-4o
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}
+                        },
+                        {
+                            "type": "text",
+                            "text": "Describe this artwork in 2-3 sentences focusing on: subject, colors, style, mood. Be concise but specific."
+                        }
+                    ]
+                }],
+                max_tokens=150  # Short description for fast matching
+            )
+            description = response.choices[0].message.content
+            print(f"✓ Quick description generated ({len(description)} chars)")
+            return description
+        except Exception as e:
+            print(f"Error with mini model: {e}")
+            return None
 
     def get_collection_stats(self):
         """Get statistics about the indexed collection"""

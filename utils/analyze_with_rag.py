@@ -7,12 +7,15 @@ and falls back to the RAG database if OpenAI cannot identify the artwork.
 
 from utils.vision import analyze_artwork, get_metadata
 from utils.rag_database_openai import ArtworkRAGOpenAI
+from utils.image_similarity import ImageSimilarityIndex
 import io
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
 
 
-# Global RAG instance (lazy loaded)
+# Global instances (lazy loaded)
 _rag_instance = None
+_similarity_index = None
 
 
 def get_rag_instance():
@@ -29,12 +32,29 @@ def get_rag_instance():
     return _rag_instance
 
 
+def get_similarity_index():
+    """Get or create similarity index instance"""
+    global _similarity_index
+    if _similarity_index is None:
+        try:
+            print("Loading image similarity index...")
+            _similarity_index = ImageSimilarityIndex()
+            if _similarity_index.hash_index:
+                print(f"✓ Similarity index ready ({len(_similarity_index.hash_index)} images)")
+            else:
+                print("⚠️  Similarity index is empty - will fall back to RAG search")
+        except Exception as e:
+            print(f"ERROR: Could not load similarity index: {e}")
+            return None
+    return _similarity_index
+
+
 def analyze_artwork_with_rag_fallback(image_input):
     """
-    Analyze artwork with RAG priority
-
-    First checks RAG database for exact match. If no exact match found (similarity < 0.90),
-    falls back to OpenAI Vision for general artwork analysis.
+    Analyze artwork with multi-tier fallback strategy:
+    1. Perceptual hash match (~0.25s) - FAST!
+    2. RAG semantic search (~5-8s with gpt-4o-mini) - Accurate
+    3. OpenAI Vision fallback (~2-3s with gpt-4o-mini + parallel) - General
 
     Args:
         image_input: PIL Image or bytes
@@ -50,8 +70,29 @@ def analyze_artwork_with_rag_fallback(image_input):
     else:
         image_bytes = image_input
 
-    # STEP 1: Try RAG database FIRST for exact match
-    print("\n=== Checking RAG database for exact match ===")
+    # TIER 1: Try perceptual hash match FIRST (lightning fast!)
+    print("\n=== TIER 1: Checking perceptual hash similarity ===")
+    similarity_index = get_similarity_index()
+    if similarity_index and similarity_index.hash_index:
+        hash_match = similarity_index.find_match(image_bytes, threshold=10)
+
+        if hash_match:
+            print("✓✓✓ FAST MATCH FOUND via perceptual hashing!")
+            print(f"  Artist: {hash_match['metadata']['artist']}")
+            print(f"  Title: {hash_match['metadata']['title']}")
+            print(f"  Distance: {hash_match['distance']:.1f}")
+
+            # Return the matched data (already includes full description!)
+            return (
+                hash_match['description'],  # Full description from index
+                hash_match['metadata'],  # Metadata from index
+                True  # from_hash_match (Special Exhibition)
+            )
+        else:
+            print("No perceptual hash match - trying RAG semantic search...")
+
+    # TIER 2: Try RAG database semantic search
+    print("\n=== TIER 2: Checking RAG database for exact match ===")
     rag = get_rag_instance()
     if rag:
         rag_result = rag.search_exact_match(image_bytes)
@@ -68,12 +109,19 @@ def analyze_artwork_with_rag_fallback(image_input):
                 True  # from_rag flag
             )
         else:
-            print("No exact match found in RAG database (similarity < 0.90)")
+            print("No exact match found in RAG database (similarity < 0.85)")
 
-    # STEP 2: Fallback to OpenAI Vision if no RAG match
-    print("\n=== Falling back to OpenAI Vision ===")
-    description = analyze_artwork(image_bytes)
-    metadata = get_metadata(image_bytes)
+    # TIER 3: Fallback to OpenAI Vision (with parallel execution)
+    print("\n=== TIER 3: Falling back to OpenAI Vision ===")
+    print("⚡ Running description and metadata extraction in parallel...")
+
+    # Run both Vision calls in parallel for faster processing
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        desc_future = executor.submit(analyze_artwork, image_bytes)
+        meta_future = executor.submit(get_metadata, image_bytes)
+
+        description = desc_future.result()
+        metadata = meta_future.result()
 
     # Return OpenAI Vision results
     return (description, metadata, False)

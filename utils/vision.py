@@ -53,9 +53,9 @@ def analyze_artwork(image_file):
                     ]
                 }
             ],
-            max_tokens=1000
+            max_tokens=150  # Ultra-fast concise descriptions with gpt-4o-mini
         )
-        
+
         description = response.choices[0].message.content
         return description
         
@@ -102,7 +102,7 @@ def get_metadata(image_file):
                     ]
                 }
             ],
-            max_tokens=300
+            max_tokens=100  # Ultra-fast metadata extraction
         )
         
         # Parse JSON response

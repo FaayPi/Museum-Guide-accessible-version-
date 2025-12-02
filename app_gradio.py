@@ -32,6 +32,10 @@ startup_time = time.time()
 get_rag_instance()
 print(f"✅ RAG database ready ({time.time() - startup_time:.2f}s)")
 
+# ⚡ OPTIMIZATION: Image analysis cache for repeated images
+import hashlib
+image_analysis_cache = {}
+
 # Global session state (will be replaced by Gradio's state management)
 session_data = {
     'image': None,
@@ -71,11 +75,28 @@ def analyze_image(image):
     try:
         start_time = time.time()
 
-        # ⚡ OPTIMIZATION 1: Resize large images before processing
-        max_size = 1024
+        # ⚡ OPTIMIZATION 1: Resize large images before processing - aggressive for speed
+        max_size = 768  # Smaller = faster upload & processing
         if max(image.size) > max_size:
             print(f"⚡ Resizing image from {image.size} to fit {max_size}px")
             image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+        # ⚡ OPTIMIZATION 2: Check cache for repeated images
+        img_bytes_for_hash = image.tobytes()
+        img_hash = hashlib.md5(img_bytes_for_hash).hexdigest()
+
+        if img_hash in image_analysis_cache:
+            print(f"✓ Using cached result for image {img_hash[:8]}")
+            cached = image_analysis_cache[img_hash]
+            cache_time = time.time() - start_time
+            print(f"⚡ Cache retrieval time: {cache_time:.2f}s")
+            return (
+                cached['description'],
+                cached['metadata'],
+                cached['description_audio_path'],
+                cached['metadata_audio_path'],
+                cached['status'] + " (from cache)"
+            )
 
         # Convert PIL Image to bytes
         img_byte_arr = io.BytesIO()
@@ -145,6 +166,16 @@ Period: {metadata.get('period', 'Unknown')}.
         # Performance timing
         total_time = time.time() - start_time
         print(f"⏱️  Total analysis time: {total_time:.2f}s")
+
+        # ⚡ Store result in cache for future use
+        image_analysis_cache[img_hash] = {
+            'description': description,
+            'metadata': metadata,
+            'description_audio_path': description_audio_path,
+            'metadata_audio_path': metadata_audio_path,
+            'status': status_message
+        }
+        print(f"✓ Result cached for image {img_hash[:8]}")
 
         return description, metadata, description_audio_path, metadata_audio_path, status_message
 
