@@ -191,7 +191,7 @@ def analyze_artwork_with_rag_fallback(image_input):
     rag = get_rag_instance()
 
     if rag:
-        RAG_TIMEOUT = 3.5  # Maximum 3.5 seconds for RAG search (strict timeout for speed)
+        RAG_TIMEOUT = 2.5  # ⚡ AGGRESSIVE: Maximum 2.5 seconds for RAG search (ultra-fast fallback)
 
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:

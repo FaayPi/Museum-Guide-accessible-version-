@@ -23,12 +23,11 @@ AUDIO_SAMPLE_RATE = 16000
 AUDIO_FORMAT = "wav"
 
 # Prompts
-VISION_PROMPT = """Describe this artwork concisely in 3-4 sentences covering:
-1. Main subject and composition
-2. Colors, style, and technique
-3. Mood and artistic impact
+VISION_PROMPT = """Describe this artwork in 2-3 sentences covering:
+1. Main subject and colors
+2. Style and mood
 
-Be engaging but brief. Focus on what makes this artwork distinctive."""
+Be concise and engaging."""  # ⚡ OPTIMIZED: Shorter prompt = faster response
 
 METADATA_PROMPT = """Analyze this artwork carefully and extract metadata. Return ONLY valid JSON in this exact format:
 

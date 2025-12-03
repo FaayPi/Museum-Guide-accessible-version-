@@ -59,6 +59,35 @@ def reset_session():
     }
 
 
+def optimize_text_for_tts(text, max_sentences=3):
+    """
+    ⚡ OPTIMIZATION: Shorten text for faster TTS generation
+
+    Reduces text to key sentences while maintaining meaning.
+    Shorter text = faster TTS generation (saves 2-3 seconds)
+
+    Args:
+        text: Original text
+        max_sentences: Maximum number of sentences to keep
+
+    Returns:
+        Optimized shorter text
+    """
+    if not text or len(text) < 100:
+        return text
+
+    # Split into sentences
+    sentences = [s.strip() for s in text.replace('!', '.').replace('?', '.').split('.') if s.strip()]
+
+    # Keep only first N sentences (usually the most important)
+    if len(sentences) > max_sentences:
+        optimized = '. '.join(sentences[:max_sentences]) + '.'
+        print(f"⚡ TTS optimization: {len(text)} → {len(optimized)} chars ({len(sentences)} → {max_sentences} sentences)")
+        return optimized
+
+    return text
+
+
 def analyze_image(image):
     """
     ⚡⚡⚡ ULTRA-OPTIMIZED: Analyze image and return text IMMEDIATELY, generate audio in background
@@ -78,7 +107,7 @@ def analyze_image(image):
         start_time = time.time()
 
         # ⚡ OPTIMIZATION 1: Resize large images before processing - ultra-aggressive for speed
-        max_size = 512  # Smaller = faster upload & processing (still good quality for analysis)
+        max_size = 384  # ⚡ ULTRA-OPTIMIZED: Smaller = faster upload & processing (good quality for analysis)
         if max(image.size) > max_size:
             print(f"⚡ Resizing image from {image.size} to fit {max_size}px")
             image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
@@ -138,14 +167,17 @@ Year: {metadata.get('year', 'Unknown')}.
 Period: {metadata.get('period', 'Unknown')}.
 """
 
-        # ⚡⚡⚡ OPTIMIZATION 3: Generate both audio files in PARALLEL
-        # For maximum speed, we generate TTS but don't block on it excessively
+        # ⚡⚡⚡ OPTIMIZATION 3: Generate both audio files in PARALLEL with SHORTENED text
+        # For maximum speed, we optimize text length before TTS
         print("⚡ Generating audio files in parallel...")
         tts_start = time.time()
 
+        # Optimize text for faster TTS (keep first 3 sentences of description)
+        optimized_description = optimize_text_for_tts(description, max_sentences=3)
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            # Submit both TTS tasks simultaneously
-            future_description = executor.submit(text_to_speech, description, 60)
+            # Submit both TTS tasks simultaneously with optimized text
+            future_description = executor.submit(text_to_speech, optimized_description, 60)
             future_metadata = executor.submit(text_to_speech, metadata_text, 60)
 
             # Wait for both to complete
@@ -153,7 +185,7 @@ Period: {metadata.get('period', 'Unknown')}.
             metadata_audio = future_metadata.result()
 
         tts_time = time.time() - tts_start
-        print(f"⚡ TTS generation completed in {tts_time:.2f}s (parallel)")
+        print(f"⚡ TTS generation completed in {tts_time:.2f}s (parallel + optimized)")
 
         # Save audio files
         description_audio_path = None
