@@ -20,6 +20,10 @@ from utils.vision import analyze_artwork, get_metadata
 from utils.audio import text_to_speech, speech_to_text
 from utils.chat import chat_with_artwork
 from utils.analyze_with_rag import analyze_artwork_with_rag_fallback, format_metadata_text, get_rag_instance
+from utils.error_handler import (
+    validate_image, validate_text, handle_pipeline_error,
+    ProgressTracker, ValidationError, APIError, ProcessingError, logger
+)
 import config
 
 # Create audio_outputs directory
@@ -90,37 +94,58 @@ def optimize_text_for_tts(text, max_sentences=3):
 
 def analyze_image(image):
     """
-    ⚡⚡⚡ ULTRA-OPTIMIZED: Analyze image and return text IMMEDIATELY, generate audio in background
+    🔒 ROBUST & OPTIMIZED: Analyze image with comprehensive error handling
     Returns: (description, metadata, description_audio, metadata_audio, status_message)
 
-    KEY OPTIMIZATIONS:
-    - Image resolution reduction (faster API calls)
-    - Fast pre-check to skip RAG for generic artworks
-    - RAG timeout (max 4 seconds)
-    - ASYNC TTS: Return text immediately, audio generates in background
-    - Performance timing
+    FEATURES:
+    - Comprehensive input validation
+    - Retry logic for API failures
+    - Graceful degradation on errors
+    - Progress tracking for debugging
+    - Performance monitoring
     """
+    # Initialize progress tracker
+    tracker = ProgressTracker()
+
     if image is None:
-        return None, None, None, None, "Please upload an image first."
+        logger.warning("No image provided")
+        return None, None, None, None, "⚠️ Please upload an image first."
 
     try:
         start_time = time.time()
+        tracker.start_step("Image Validation")
 
-        # ⚡ OPTIMIZATION 1: Resize large images before processing - ultra-aggressive for speed
-        max_size = 384  # ⚡ ULTRA-OPTIMIZED: Smaller = faster upload & processing (good quality for analysis)
-        if max(image.size) > max_size:
-            print(f"⚡ Resizing image from {image.size} to fit {max_size}px")
-            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        # STEP 1: Validate image input
+        try:
+            validated_image = validate_image(image, max_size_mb=10)
+            tracker.complete_step(success=True)
+        except ValidationError as ve:
+            tracker.complete_step(success=False, error=str(ve))
+            error_info = handle_pipeline_error(ve, "Image Validation")
+            logger.error(f"Image validation failed: {error_info}")
+            return None, None, None, None, f"❌ {error_info['user_message']}"
 
-        # ⚡ OPTIMIZATION 2: Check cache for repeated images
-        img_bytes_for_hash = image.tobytes()
+        start_time = time.time()
+
+        # STEP 2: Optimize image for processing
+        tracker.start_step("Image Optimization")
+        max_size = 384  # ⚡ ULTRA-OPTIMIZED: Smaller = faster upload & processing
+        if max(validated_image.size) > max_size:
+            logger.info(f"Resizing image from {validated_image.size} to fit {max_size}px")
+            validated_image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        tracker.complete_step(success=True)
+
+        # STEP 3: Check cache for repeated images
+        tracker.start_step("Cache Check")
+        img_bytes_for_hash = validated_image.tobytes()
         img_hash = hashlib.md5(img_bytes_for_hash).hexdigest()
 
         if img_hash in image_analysis_cache:
-            print(f"✓ Using cached result for image {img_hash[:8]}")
+            logger.info(f"Cache hit for image {img_hash[:8]}")
             cached = image_analysis_cache[img_hash]
             cache_time = time.time() - start_time
-            print(f"⚡ Cache retrieval time: {cache_time:.2f}s")
+            tracker.complete_step(success=True)
+            logger.info(f"⚡ Cache retrieval time: {cache_time:.2f}s")
             return (
                 cached['description'],
                 cached['metadata'],
@@ -128,15 +153,30 @@ def analyze_image(image):
                 cached['metadata_audio_path'],
                 cached['status'] + " (from cache)"
             )
+        tracker.complete_step(success=True)
 
-        # Convert PIL Image to bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        image_bytes = img_byte_arr.getvalue()
+        # STEP 4: Convert image to bytes
+        tracker.start_step("Image Conversion")
+        try:
+            img_byte_arr = io.BytesIO()
+            validated_image.save(img_byte_arr, format='PNG')
+            image_bytes = img_byte_arr.getvalue()
+            tracker.complete_step(success=True)
+        except Exception as e:
+            tracker.complete_step(success=False, error=str(e))
+            raise ProcessingError(f"Failed to convert image: {str(e)}")
 
-        # Step 1: Analyze artwork with RAG fallback (with timeout and fast-path)
-        print("\n=== Starting artwork analysis with RAG fallback ===")
-        description, metadata, from_rag = analyze_artwork_with_rag_fallback(image)
+        # STEP 5: Analyze artwork with RAG fallback (with error handling)
+        tracker.start_step("Artwork Analysis")
+        logger.info("Starting artwork analysis with RAG fallback")
+        try:
+            description, metadata, from_rag = analyze_artwork_with_rag_fallback(validated_image)
+            tracker.complete_step(success=True)
+        except Exception as e:
+            tracker.complete_step(success=False, error=str(e))
+            error_info = handle_pipeline_error(e, "Artwork Analysis")
+            logger.error(f"Analysis failed: {error_info}")
+            return None, None, None, None, f"❌ {error_info['user_message']}"
 
         analysis_time = time.time() - start_time
         print(f"⏱️  Analysis completed in {analysis_time:.2f}s")
@@ -251,13 +291,21 @@ def process_voice_question(audio_file, description, metadata, chat_history):
         if not question:
             return chat_history, None
 
-        # Convert old-style chat history to new format for chat_with_artwork
+        # Convert chat history to format expected by chat_with_artwork
         old_format_history = []
-        for user_msg, bot_msg in chat_history:
-            if user_msg:
-                old_format_history.append({"role": "user", "content": user_msg})
-            if bot_msg:
-                old_format_history.append({"role": "assistant", "content": bot_msg})
+        if isinstance(chat_history, list) and len(chat_history) > 0:
+            # Handle message format (dict with 'role' and 'content')
+            if isinstance(chat_history[0], dict):
+                old_format_history = chat_history
+            # Handle tuple format (user_msg, bot_msg)
+            else:
+                for item in chat_history:
+                    if isinstance(item, tuple):
+                        user_msg, bot_msg = item
+                        if user_msg:
+                            old_format_history.append({"role": "user", "content": user_msg})
+                        if bot_msg:
+                            old_format_history.append({"role": "assistant", "content": bot_msg})
 
         # Get answer from chatbot
         answer = chat_with_artwork(
@@ -267,8 +315,11 @@ def process_voice_question(audio_file, description, metadata, chat_history):
             chat_history=old_format_history
         )
 
-        # Update chat history (Gradio Chatbot format: list of tuples)
-        chat_history.append((question, answer))
+        # Update chat history - use message format for Gradio Chatbot
+        new_history = chat_history + [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": answer}
+        ]
 
         # Generate audio answer
         answer_audio = text_to_speech(answer, timeout=60)
@@ -281,7 +332,7 @@ def process_voice_question(audio_file, description, metadata, chat_history):
                 f.write(answer_audio)
             answer_audio_path = str(audio_path)
 
-        return chat_history, answer_audio_path
+        return new_history, answer_audio_path
 
     except Exception as e:
         print(f"Error processing voice question: {e}")
@@ -297,17 +348,27 @@ def process_text_question(question, description, metadata, chat_history):
         return chat_history, ""
 
     if description is None or metadata is None:
-        chat_history.append((question, "Please analyze an artwork first."))
-        return chat_history, ""
+        # Use message format for Gradio Chatbot
+        new_history = chat_history + [{"role": "user", "content": question},
+                                       {"role": "assistant", "content": "Please analyze an artwork first."}]
+        return new_history, ""
 
     try:
-        # Convert chat history from Gradio format to old format for chat_with_artwork
+        # Convert chat history to format expected by chat_with_artwork
         old_format_history = []
-        for user_msg, bot_msg in chat_history:
-            if user_msg:
-                old_format_history.append({"role": "user", "content": user_msg})
-            if bot_msg:
-                old_format_history.append({"role": "assistant", "content": bot_msg})
+        if isinstance(chat_history, list) and len(chat_history) > 0:
+            # Handle message format (dict with 'role' and 'content')
+            if isinstance(chat_history[0], dict):
+                old_format_history = chat_history
+            # Handle tuple format (user_msg, bot_msg)
+            else:
+                for item in chat_history:
+                    if isinstance(item, tuple):
+                        user_msg, bot_msg = item
+                        if user_msg:
+                            old_format_history.append({"role": "user", "content": user_msg})
+                        if bot_msg:
+                            old_format_history.append({"role": "assistant", "content": bot_msg})
 
         # Get answer from chatbot
         answer = chat_with_artwork(
@@ -317,15 +378,21 @@ def process_text_question(question, description, metadata, chat_history):
             chat_history=old_format_history
         )
 
-        # Update chat history (Gradio Chatbot format: list of tuples)
-        chat_history.append((question, answer))
+        # Update chat history - use message format for Gradio Chatbot
+        new_history = chat_history + [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": answer}
+        ]
 
-        return chat_history, ""  # Return empty string to clear input
+        return new_history, ""  # Return empty string to clear input
 
     except Exception as e:
         print(f"Error processing text question: {e}")
-        chat_history.append((question, f"Error: {str(e)}"))
-        return chat_history, ""
+        error_history = chat_history + [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": f"Error: {str(e)}"}
+        ]
+        return error_history, ""
 
 
 def create_audio_guide_interface():
@@ -495,6 +562,12 @@ def create_visual_guide_interface():
         gr.Markdown("---")
         gr.Markdown("### Chatbot")
 
+        # Chatbot display
+        chatbot = gr.Chatbot(
+            label="Conversation",
+            height=300
+        )
+
         with gr.Row():
             question_input = gr.Textbox(
                 label="Ask a question about the artwork",
@@ -538,6 +611,10 @@ def create_visual_guide_interface():
             fn=process_text_question,
             inputs=[question_input, description_state, metadata_state, chat_history_state],
             outputs=[chat_history_state, question_input]
+        ).then(
+            fn=lambda history: history,
+            inputs=[chat_history_state],
+            outputs=[chatbot]
         )
 
         # Also allow pressing Enter to send
@@ -545,6 +622,10 @@ def create_visual_guide_interface():
             fn=process_text_question,
             inputs=[question_input, description_state, metadata_state, chat_history_state],
             outputs=[chat_history_state, question_input]
+        ).then(
+            fn=lambda history: history,
+            inputs=[chat_history_state],
+            outputs=[chatbot]
         )
 
     return demo
