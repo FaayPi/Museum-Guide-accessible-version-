@@ -16,7 +16,7 @@ from PIL import Image
 sys.path.append(str(Path(__file__).parent))
 
 # Import backend functions
-from src.services.audio import text_to_speech
+from src.services.audio import text_to_speech, speech_to_text
 from src.services.chat import chat_with_artwork
 from src.core.analyze import analyze_artwork, get_rag_instance, format_metadata_text
 from src.core.error_handler import (
