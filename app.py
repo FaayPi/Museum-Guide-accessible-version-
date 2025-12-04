@@ -636,7 +636,16 @@ def create_home_interface():
     with gr.Blocks() as demo:
         gr.Markdown("# Museum Audio Guide")
         gr.Markdown("---")
-        gr.Markdown("## Welcome! Choose your guide mode:")
+        gr.Markdown("""
+## Welcome to your AI-powered Museum Guide!
+
+Upload a photo of any artwork and instantly discover:
+- **What you're looking at** - AI-generated descriptions of the painting
+- **Who created it** - Artist, title, period, and historical context
+- **Ask questions** - Chat with AI about style, technique, and meaning
+
+Choose your preferred guide mode in the tabs:
+""")
 
         with gr.Row():
             with gr.Column():
@@ -647,9 +656,7 @@ def create_home_interface():
                 - Audio description of artwork
                 - Audio metadata
                 - Voice-based Q&A chat
-                - Fully accessible
                 """)
-                audio_btn = gr.Button("Start Audio-Guide", variant="primary", size="lg")
 
             with gr.Column():
                 gr.Markdown("""
@@ -659,9 +666,7 @@ def create_home_interface():
                 - Text + Audio description
                 - Visual metadata display
                 - Text-based chat
-                - Rich visual experience
                 """)
-                visual_btn = gr.Button("Start Visual-Guide", variant="secondary", size="lg")
 
         # Navigation will be handled by TabbedInterface
         gr.Markdown("---")
