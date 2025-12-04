@@ -1,11 +1,30 @@
+"""
+Application Configuration with Environment Support.
+
+Supports multiple environments: development, production, testing
+Configuration is loaded from environment variables with sensible defaults.
+"""
+
 import os
 from dotenv import load_dotenv
+from typing import Literal
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
-# API Keys
+# ==================== ENVIRONMENT ====================
+Environment = Literal['development', 'production', 'testing']
+ENVIRONMENT: Environment = os.getenv('ENVIRONMENT', 'development')  # type: ignore
+
+# ==================== API KEYS ====================
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+# Validate required API keys
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY not found in environment variables")
+if not PINECONE_API_KEY:
+    raise ValueError("PINECONE_API_KEY not found in environment variables")
 
 # OpenAI Models
 VISION_MODEL = "gpt-4o-mini"  # gpt-4o-mini: 5-8x faster than gpt-4o, still excellent for artwork analysis
@@ -13,14 +32,39 @@ CHAT_MODEL = "gpt-4o-mini"
 TTS_MODEL = "tts-1"  # or "tts-1-hd" for higher quality
 TTS_VOICE = "alloy"  # Options: alloy, echo, fable, onyx, nova, shimmer
 
-# App Settings
+# ==================== APP SETTINGS ====================
 APP_TITLE = "Museum Audio Guide"
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 SUPPORTED_IMAGE_FORMATS = ["jpg", "jpeg", "png", "webp"]
 
-# Audio Settings
+# Server settings (for production deployment)
+HOST = os.getenv('HOST', '127.0.0.1')
+PORT = int(os.getenv('PORT', 7860))
+
+# ==================== AUDIO SETTINGS ====================
 AUDIO_SAMPLE_RATE = 16000
 AUDIO_FORMAT = "wav"
+
+# ==================== PERFORMANCE SETTINGS ====================
+MAX_WORKERS = int(os.getenv('MAX_WORKERS', 4))
+REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))
+
+# ==================== FEATURE FLAGS ====================
+ENABLE_RAG = os.getenv('ENABLE_RAG', 'true').lower() == 'true'
+ENABLE_CACHE = os.getenv('ENABLE_CACHE', 'true').lower() == 'true'
+ENABLE_METRICS = os.getenv('ENABLE_METRICS', 'true').lower() == 'true'
+
+# ==================== RATE LIMITING ====================
+MAX_REQUESTS_PER_MINUTE = int(os.getenv('MAX_REQUESTS_PER_MINUTE', 60))
+MAX_REQUESTS_PER_HOUR = int(os.getenv('MAX_REQUESTS_PER_HOUR', 1000))
+
+# ==================== LOGGING ====================
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG' if ENVIRONMENT == 'development' else 'INFO')
+LOG_FILE = os.getenv('LOG_FILE', 'logs/app.log')
+
+# ==================== MONITORING ====================
+ENABLE_MONITORING = os.getenv('ENABLE_MONITORING', 'false').lower() == 'true'
+METRICS_PORT = int(os.getenv('METRICS_PORT', 9090))
 
 # Prompts
 VISION_PROMPT = """Describe this artwork in 2-3 sentences covering:

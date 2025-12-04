@@ -1,0 +1,50 @@
+# Museum Guide App - Python Dependencies
+# Production-ready with pinned versions for reproducibility
+
+# ==================== CORE DEPENDENCIES ====================
+
+# AI/ML APIs
+openai==2.8.1              # OpenAI GPT-4 Vision, Chat, TTS
+pinecone==8.0.0            # Vector database for RAG
+
+# Image Processing
+Pillow==10.1.0             # Image manipulation
+imagehash==4.3.1           # Perceptual hashing for similarity
+
+# Web Interface
+gradio==6.0.1              # Web UI framework
+
+# Utilities
+python-dotenv==1.0.0       # Environment variable management
+numpy==1.26.4              # Numerical operations
+psutil==7.0.0              # System monitoring
+
+# ==================== OPTIONAL DEPENDENCIES ====================
+
+# For enhanced performance (recommended for production)
+# uvloop==0.19.0           # Faster event loop (Unix only)
+
+# For monitoring and metrics
+# prometheus-client==0.19.0
+
+# For distributed tracing
+# opentelemetry-api==1.22.0
+# opentelemetry-sdk==1.22.0
+
+# ==================== DEVELOPMENT DEPENDENCIES ====================
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+# pytest==7.4.3
+# pytest-cov==4.1.0
+# pytest-asyncio==0.21.1
+
+# Code Quality
+# black==23.12.1           # Code formatter
+# flake8==6.1.0            # Linter
+# mypy==1.7.1              # Type checker
+# isort==5.13.2            # Import sorter
+
+# Documentation
+# sphinx==7.2.6
+# sphinx-rtd-theme==2.0.0

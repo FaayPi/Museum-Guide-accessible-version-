@@ -3,6 +3,12 @@ Centralized Error Handling and Validation System
 
 Provides robust error handling, retry logic, and validation
 for all API calls and data processing operations.
+
+Production Features:
+- Structured logging with context
+- Error tracking and reporting
+- Graceful degradation
+- Automatic retry with circuit breaker
 """
 
 import time
@@ -11,13 +17,28 @@ from typing import Callable, Any, Optional, Dict
 import logging
 from PIL import Image
 import io
+import sys
+import traceback
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Import logging configuration
+try:
+    from src.core.logging_config import setup_logging, get_logger
+    import config
+
+    # Initialize logging based on environment
+    setup_logging(
+        environment=config.ENVIRONMENT,
+        log_level=config.LOG_LEVEL,
+        log_file=config.LOG_FILE
+    )
+    logger = get_logger(__name__)
+except ImportError:
+    # Fallback to basic logging if logging_config not available
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
 
 
 class PipelineError(Exception):
