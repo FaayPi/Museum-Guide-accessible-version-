@@ -124,12 +124,12 @@ def setup_logging(
 
     # ==================== DEVELOPMENT ====================
     if environment == 'development':
-        # Console handler with colors
+        # Console handler with colors - CLEAN FORMAT
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(numeric_level)
+        console_handler.setLevel(logging.INFO)  # Only INFO+ to console
 
         console_formatter = ColoredFormatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            '%(levelname)s | %(message)s',  # Simplified format
             datefmt='%H:%M:%S'
         )
         console_handler.setFormatter(console_formatter)

@@ -30,10 +30,14 @@ OUTPUT_DIR = Path("outputs/audio")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ⚡ SPEED OPTIMIZATION: Pre-initialize RAG database at startup
-print("🔄 Pre-loading RAG database...")
+print("\n" + "="*60)
+print("MUSEUM GUIDE - Starting Up")
+print("="*60)
+print("Loading RAG database...")
 startup_time = time.time()
 get_rag_instance()
-print(f"✅ RAG database ready ({time.time() - startup_time:.2f}s)")
+print(f"RAG ready in {time.time() - startup_time:.1f}s")
+print("="*60 + "\n")
 
 # ⚡ OPTIMIZATION: Image analysis cache for repeated images
 import hashlib
@@ -130,7 +134,6 @@ def analyze_image(image):
         tracker.start_step("Image Optimization")
         max_size = 384  # ⚡ ULTRA-OPTIMIZED: Smaller = faster upload & processing
         if max(validated_image.size) > max_size:
-            logger.info(f"Resizing image from {validated_image.size} to fit {max_size}px")
             validated_image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         tracker.complete_step(success=True)
 
@@ -140,11 +143,9 @@ def analyze_image(image):
         img_hash = hashlib.md5(img_bytes_for_hash).hexdigest()
 
         if img_hash in image_analysis_cache:
-            logger.info(f"Cache hit for image {img_hash[:8]}")
             cached = image_analysis_cache[img_hash]
-            cache_time = time.time() - start_time
             tracker.complete_step(success=True)
-            logger.info(f"⚡ Cache retrieval time: {cache_time:.2f}s")
+            print("Cache hit - instant response")
             return (
                 cached['description'],
                 cached['metadata'],
@@ -167,18 +168,18 @@ def analyze_image(image):
 
         # STEP 5: Analyze artwork with RAG fallback (with error handling)
         tracker.start_step("Artwork Analysis")
-        logger.info("Starting artwork analysis with RAG fallback")
+        print("Analyzing artwork...")
         try:
             description, metadata, from_rag = analyze_artwork(validated_image)
             tracker.complete_step(success=True)
         except Exception as e:
             tracker.complete_step(success=False, error=str(e))
             error_info = handle_pipeline_error(e, "Artwork Analysis")
-            logger.error(f"Analysis failed: {error_info}")
+            print(f"ERROR: Analysis failed - {error_info['user_message']}")
             return None, None, None, None, f"❌ {error_info['user_message']}"
 
         analysis_time = time.time() - start_time
-        print(f"⏱️  Analysis completed in {analysis_time:.2f}s")
+        print(f"Analysis complete ({analysis_time:.1f}s)")
 
         if not description:
             return None, None, None, None, "Unable to analyze the artwork. Please try again."
@@ -188,10 +189,10 @@ def analyze_image(image):
 
         # Add indicator if data came from RAG
         if from_rag:
-            print("✓ Using data from RAG database (Special Exhibition)")
+            print("Source: RAG Database (Special Exhibition)")
             status_message = "Analysis complete! This artwork is from our Special Exhibition. Generating audio..."
         else:
-            print("✓ Using data from OpenAI Vision")
+            print("Source: OpenAI Vision")
             status_message = "Analysis complete! Generating audio..."
 
         # Generate unique session ID
@@ -207,8 +208,7 @@ Period: {metadata.get('period', 'Unknown')}.
 """
 
         # ⚡⚡⚡ OPTIMIZATION 3: Generate both audio files in PARALLEL with SHORTENED text
-        # For maximum speed, we optimize text length before TTS
-        print("⚡ Generating audio files in parallel...")
+        print("Generating audio...")
         tts_start = time.time()
 
         # Optimize text for faster TTS (keep first 3 sentences of description)
@@ -224,7 +224,7 @@ Period: {metadata.get('period', 'Unknown')}.
             metadata_audio = future_metadata.result()
 
         tts_time = time.time() - tts_start
-        print(f"⚡ TTS generation completed in {tts_time:.2f}s (parallel + optimized)")
+        print(f"Audio ready ({tts_time:.1f}s)")
 
         # Save audio files
         description_audio_path = None
@@ -243,7 +243,8 @@ Period: {metadata.get('period', 'Unknown')}.
 
         # Performance timing
         total_time = time.time() - start_time
-        print(f"⏱️  Total analysis time: {total_time:.2f}s")
+        print(f"Total: {total_time:.1f}s")
+        print("-" * 60)
 
         # Update status message
         final_status = "Analysis complete! Audio ready to play."
@@ -258,7 +259,6 @@ Period: {metadata.get('period', 'Unknown')}.
             'metadata_audio_path': metadata_audio_path,
             'status': final_status
         }
-        print(f"✓ Result cached for image {img_hash[:8]}")
 
         return description, metadata, description_audio_path, metadata_audio_path, final_status
 

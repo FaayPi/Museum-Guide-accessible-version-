@@ -18,29 +18,22 @@ def text_to_speech(text, timeout=30):
     """
     try:
         if not text or len(text.strip()) == 0:
-            print("TTS Error: Empty text provided")
             return None
-        
+
         client = OpenAI(api_key=config.OPENAI_API_KEY, timeout=timeout)
-        
-        print(f"TTS: Converting {len(text)} characters to speech...")
-        
+
         response = client.audio.speech.create(
             model=config.TTS_MODEL,
             voice=config.TTS_VOICE,
             input=text
         )
-        
+
         # Return audio bytes
         audio_bytes = response.content
-        print(f"TTS: Successfully generated {len(audio_bytes)} bytes of audio")
         return audio_bytes
-        
+
     except Exception as e:
-        print(f"TTS Error: {str(e)}")
-        print(f"TTS Error type: {type(e).__name__}")
-        import traceback
-        traceback.print_exc()
+        print(f"ERROR: TTS failed - {str(e)}")
         return None
 
 
@@ -57,21 +50,21 @@ def speech_to_text(audio_file, language="en"):
     """
     try:
         client = OpenAI(api_key=config.OPENAI_API_KEY)
-        
+
         # If audio_file is bytes, convert to file-like object
         if isinstance(audio_file, bytes):
             audio_file = io.BytesIO(audio_file)
             audio_file.name = "audio.wav"  # Whisper needs a filename
-        
+
         # Call Whisper API
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file,
             language=language
         )
-        
+
         return transcript.text
-        
+
     except Exception as e:
-        print(f"STT Error: {str(e)}")
-        return f"Speech recognition error: {str(e)}"
+        print(f"ERROR: Speech recognition failed - {str(e)}")
+        return None

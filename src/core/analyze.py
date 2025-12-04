@@ -25,11 +25,9 @@ def get_rag_instance():
     global _rag_instance
     if _rag_instance is None:
         try:
-            print("Initializing RAG database...")
             _rag_instance = ArtworkRAGOpenAI()
-            print("✓ RAG database ready")
         except Exception as e:
-            print(f"ERROR: Could not initialize RAG database: {e}")
+            print(f"ERROR: RAG initialization failed - {e}")
             return None
     return _rag_instance
 
@@ -39,14 +37,9 @@ def get_similarity_index():
     global _similarity_index
     if _similarity_index is None:
         try:
-            print("Loading image similarity index...")
             _similarity_index = ImageSimilarityIndex()
-            if _similarity_index.hash_index:
-                print(f"✓ Similarity index ready ({len(_similarity_index.hash_index)} images)")
-            else:
-                print("⚠️  Similarity index is empty - will fall back to RAG search")
         except Exception as e:
-            print(f"ERROR: Could not load similarity index: {e}")
+            print(f"ERROR: Similarity index failed - {e}")
             return None
     return _similarity_index
 
@@ -83,7 +76,6 @@ def is_likely_generic_artwork(image_bytes):
 
         # Very low complexity = likely simple photo/sketch
         if edge_density < 5:
-            print(f"⚡ Fast pre-check: Low complexity ({edge_density:.1f}) - likely generic, skipping RAG")
             return True
 
         # 2. Check color variance (museum paintings usually have rich color)
@@ -92,7 +84,6 @@ def is_likely_generic_artwork(image_bytes):
 
         # Very low color variance = likely plain photo/document
         if avg_color_variance < 15:
-            print(f"⚡ Fast pre-check: Low color variance ({avg_color_variance:.1f}) - likely generic, skipping RAG")
             return True
 
         # 3. Check if image is mostly one color (screenshots, graphics, etc.)
@@ -101,14 +92,11 @@ def is_likely_generic_artwork(image_bytes):
         color_diversity = unique_colors / total_pixels
 
         if color_diversity < 0.1:
-            print(f"⚡ Fast pre-check: Low color diversity ({color_diversity:.2%}) - likely generic, skipping RAG")
             return True
 
-        print(f"⚡ Fast pre-check: Passed (complexity={edge_density:.1f}, variance={avg_color_variance:.1f}) - checking RAG")
         return False
 
     except Exception as e:
-        print(f"Warning: Pre-check failed ({e}), defaulting to RAG search")
         return False  # On error, default to doing RAG search
 
 

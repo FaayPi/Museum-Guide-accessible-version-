@@ -29,7 +29,6 @@ class ArtworkRAGOpenAI:
             raise ValueError("PINECONE_API_KEY not found in environment variables. Please add it to .env file.")
 
         # Initialize Pinecone
-        print("Initializing Pinecone...")
         self.pc = Pinecone(api_key=api_key)
 
         # Initialize OpenAI client
@@ -37,7 +36,6 @@ class ArtworkRAGOpenAI:
 
         # OpenAI text-embedding-3-large has 3072 dimensions
         self.embedding_dim = 1536  # text-embedding-3-small
-        print("✓ OpenAI client initialized")
 
         # Create or connect to index
         self._setup_index()
@@ -47,7 +45,7 @@ class ArtworkRAGOpenAI:
         existing_indexes = [index.name for index in self.pc.list_indexes()]
 
         if self.index_name not in existing_indexes:
-            print(f"Creating new Pinecone index: {self.index_name}")
+            print(f"Creating new Pinecone index...")
             self.pc.create_index(
                 name=self.index_name,
                 dimension=self.embedding_dim,
@@ -57,9 +55,6 @@ class ArtworkRAGOpenAI:
                     region="us-east-1"
                 )
             )
-            print(f"✓ Index '{self.index_name}' created")
-        else:
-            print(f"✓ Using existing index: {self.index_name}")
 
         # Connect to index
         self.index = self.pc.Index(self.index_name)
