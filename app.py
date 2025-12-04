@@ -410,8 +410,15 @@ def create_audio_guide_interface():
         with gr.Tab("Step 1: Upload & Analyze") as tab1:
             gr.Markdown("## Upload Artwork Photo")
             gr.Markdown("Upload a photo of the artwork. It will be automatically analyzed and audio will be generated.")
+            gr.Markdown("💡 **Tip**: Images are automatically optimized for fast upload")
 
-            image_input = gr.Image(label="Upload Artwork Image", type="pil")
+            image_input = gr.Image(
+                label="Upload Artwork Image",
+                type="pil",
+                image_mode="RGB",
+                height=512,
+                width=512
+            )
             analyze_btn = gr.Button("Analyze Artwork", variant="primary", size="lg")
             status_output = gr.Textbox(label="Status", interactive=False)
 
@@ -500,7 +507,8 @@ def create_audio_guide_interface():
                 metadata_state,
                 combined_audio_output,
                 status_output
-            ]
+            ],
+            show_progress="full"
         )
 
         process_voice_btn.click(
@@ -541,7 +549,13 @@ def create_visual_guide_interface():
         with gr.Row():
             with gr.Column(scale=2):
                 # Image upload and display
-                image_input = gr.Image(label="Upload Artwork Image", type="pil")
+                image_input = gr.Image(
+                    label="Upload Artwork Image",
+                    type="pil",
+                    image_mode="RGB",
+                    height=512,
+                    width=512
+                )
                 analyze_btn = gr.Button("Analyze Artwork", variant="primary")
 
                 # Description section
@@ -603,7 +617,8 @@ def create_visual_guide_interface():
                 title_output,
                 year_output,
                 period_output
-            ]
+            ],
+            show_progress="full"
         )
 
         send_btn.click(
@@ -643,6 +658,8 @@ Upload a photo of any artwork and instantly discover:
 - **What you're looking at** - AI-generated descriptions of the painting
 - **Who created it** - Artist, title, period, and historical context
 - **Ask questions** - Chat with AI about style, technique, and meaning
+
+💡 **Fast Upload**: Images are automatically optimized in your browser for instant upload!
 
 Choose your preferred guide mode in the tabs:
 """)
