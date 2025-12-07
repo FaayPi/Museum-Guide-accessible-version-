@@ -97,20 +97,6 @@ The app is publicly available on **Hugging Face Spaces**:
 
 ---
 
-## Configuration
-
-Key environment variables in `.env`:
-
-```bash
-OPENAI_API_KEY=sk-...
-PINECONE_API_KEY=pcsk-...
-ENVIRONMENT=development  # or production, testing
-LOG_LEVEL=INFO
-PORT=7860
-```
-
----
-
 ## Project Structure
 
 ```
