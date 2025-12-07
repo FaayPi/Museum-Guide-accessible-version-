@@ -1,14 +1,14 @@
 ---
 
-# Museum Audio Guide 🎨🔊
+# Museum Audio Guide
 
 AI-powered museum guide that makes art accessible through computer vision, conversational AI, and text-to-speech. Built with accessibility in mind for blind and visually impaired visitors.
 
-🚀 **[Try the Live Demo on Hugging Face](https://huggingface.co/spaces/FeePieper/museum_guide_app)**
+**[Try the Live Demo on Hugging Face](https://huggingface.co/spaces/FeePieper/museum_guide_app)**
 
 ---
 
-## 🎯 Overview
+## Overview
 
 Upload a photo of any artwork and receive:
 - AI-generated description (visual elements, style, mood)
@@ -20,7 +20,7 @@ Upload a photo of any artwork and receive:
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 ### 1. Dual-Mode Interface
 - **Audio-Guide Mode**: Automated audio playback, voice-based Q&A
@@ -41,7 +41,7 @@ Tier 4: Vision API         (2-3s)    🤖 Universal fallback
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Gradio Interface → Core Engine → Cache/Services → OpenAI + Pinecone
@@ -63,7 +63,7 @@ Gradio Interface → Core Engine → Cache/Services → OpenAI + Pinecone
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Gradio 6.0.1** - Web interface
 - **OpenAI GPT-4o-mini** - Vision API, Chat API, TTS API
@@ -75,7 +75,7 @@ Gradio Interface → Core Engine → Cache/Services → OpenAI + Pinecone
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 ### Live Demo
 The app is publicly available on **Hugging Face Spaces**:
@@ -83,7 +83,7 @@ The app is publicly available on **Hugging Face Spaces**:
 
 ---
 
-## 💡 Usage
+## Usage
 
 **Audio-Guide Mode** (blind/visually impaired visitors):
 1. Upload artwork photo
@@ -97,7 +97,7 @@ The app is publicly available on **Hugging Face Spaces**:
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Key environment variables in `.env`:
 
@@ -111,7 +111,7 @@ PORT=7860
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 museum_guide_app/
@@ -155,7 +155,7 @@ museum_guide_app/
 
 ---
 
-## 🧪 Testing & Evaluation
+## Testing & Evaluation
 
 ### AI Quality Testing
 
@@ -175,13 +175,13 @@ python tests/test_ai_quality.py
 
 ---
 
-## 📄 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Credits & Acknowledgments
+## Credits & Acknowledgments
 
 **Developer:** Fee Pieper
 
