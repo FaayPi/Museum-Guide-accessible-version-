@@ -1,21 +1,8 @@
 ---
-title: Museum Audio Guide
-emoji: 🎨
-colorFrom: blue
-colorTo: purple
-sdk: gradio
-sdk_version: 6.0.1
-app_file: app.py
-pinned: false
-license: mit
----
 
 # Museum Audio Guide 🎨🔊
 
 AI-powered museum guide that makes art accessible through computer vision, conversational AI, and text-to-speech. Built with accessibility in mind for blind and visually impaired visitors.
-
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 🚀 **[Try the Live Demo on Hugging Face](https://huggingface.co/spaces/FeePieper/museum_guide_app)**
 
@@ -88,45 +75,11 @@ Gradio Interface → Core Engine → Cache/Services → OpenAI + Pinecone
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Deployment
 
-### Prerequisites
-- Python 3.10+
-- [OpenAI API key](https://platform.openai.com/api-keys)
-- [Pinecone API key](https://www.pinecone.io/)
-
-### Installation
-
-```bash
-# Clone repository
-git clone https://github.com/your-username/museum_guide_app.git
-cd museum_guide_app
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Add your API keys to .env:
-# OPENAI_API_KEY=sk-...
-# PINECONE_API_KEY=pcsk-...
-
-# Run application
-python app.py
-```
-
-Access at **http://localhost:7860**
-
-### Docker
-
-```bash
-docker build -t museum-guide:latest .
-docker run -d --name museum-guide -p 7860:7860 --env-file .env museum-guide:latest
-```
+### Live Demo
+The app is publicly available on **Hugging Face Spaces**:
+[https://huggingface.co/spaces/FeePieper/museum_guide_app](https://huggingface.co/spaces/FeePieper/museum_guide_app)
 
 ---
 
@@ -162,44 +115,42 @@ PORT=7860
 
 ```
 museum_guide_app/
-├── app.py                     # Main Gradio application
-├── config.py                  # Environment configuration
-├── requirements.txt           # Python dependencies
-├── LICENSE                    # MIT License
-├── README.md                  # Project documentation
-├── AI_EVALUATION_REPORT.md    # AI quality test results
-├── .env.example               # Environment variables template
-├── .gitignore                 # Git ignore rules
-├── src/                       # Source code
+├── app.py                           # Main Gradio application
+├── config.py                        # Environment configuration
+├── requirements.txt                 # Python dependencies
+├── LICENSE                          # MIT License
+├── README.md                        # Project documentation
+├── AI_EVALUATION_REPORT.md          # AI quality test results
+├── .env.example                     # Environment variables template
+├── .gitignore                       # Git ignore rules
+├── src/                             # Source code
 │   ├── __init__.py
-│   ├── core/                  # Core business logic
-│   │   ├── analyze.py         # Multi-tier artwork recognition
-│   │   ├── error_handler.py   # Retry logic & error handling
-│   │   ├── health_check.py    # Health monitoring
-│   │   └── logging_config.py  # Logging configuration
-│   ├── services/              # External service integrations
-│   │   ├── vision.py          # OpenAI Vision API
-│   │   ├── audio.py           # OpenAI TTS API
-│   │   ├── chat.py            # OpenAI Chat API
-│   │   ├── rag_database.py    # Pinecone vector database
-│   │   └── image_similarity.py # Perceptual hashing
-│   └── models/                # Data models
-│       └── types.py           # Type definitions
-├── tests/                     # Testing & evaluation
-│   ├── test_ai_quality.py     # AI quality test suite
-│   ├── test_data/             # Test images
-│   │   ├── known_artworks/    # Vision API tests
-│   │   ├── RAG_images/        # RAG database tests
-│   │   └── generic_images/    # Hallucination tests
-│   └── results/               # Test results (JSON)
-├── data/                      # Application data
-│   ├── RAG_database/          # Artwork images for RAG
-│   ├── image_hash_index.json # Perceptual hash index
-│   └── test_paintings/        # Test artwork images
-├── outputs/                   # Generated outputs
-│   └── audio/                 # TTS audio files
-└── logs/                      # Application logs
-    └── app.log                # Main log file
+│   ├── core/                        # Core business logic
+│   │   ├── __init__.py
+│   │   ├── analyze.py               # Multi-tier artwork recognition
+│   │   ├── error_handler.py         # Retry logic & error handling
+│   │   └── logging_config.py        # Logging configuration
+│   ├── services/                    # External service integrations
+│   │   ├── __init__.py
+│   │   ├── vision.py                # OpenAI Vision API
+│   │   ├── audio.py                 # OpenAI TTS API
+│   │   ├── chat.py                  # OpenAI Chat API
+│   │   ├── rag_database.py          # Pinecone vector database
+│   │   └── image_similarity.py      # Perceptual hashing
+│   └── models/                      # Data models
+│       ├── __init__.py
+│       └── types.py                 # Type definitions
+├── tests/                           # Testing & evaluation
+│   ├── test_ai_quality.py           # AI quality test suite
+│   ├── test_data/                   # Test images
+│   │   ├── known_artworks/          # Vision API tests
+│   │   ├── RAG_images/              # RAG database tests
+│   │   └── generic_images/          # Hallucination tests
+│   └── results/                     # Test results (JSON)
+└── data/                            # Application data
+    ├── RAG_database/                # Artwork images for RAG
+    ├── image_hash_index.json        # Perceptual hash index
+    └── test_paintings/              # Test artwork images
 ```
 
 ---
@@ -246,10 +197,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 **Documentation & Resources:**
 - [OpenAI API Documentation](https://platform.openai.com/docs)
 - [Pinecone Documentation](https://docs.pinecone.io)
-- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/) - Accessibility standards
-
----
-
-**Built for accessible, interactive art education**
-
-*Making museums accessible to everyone, one artwork at a time.*
