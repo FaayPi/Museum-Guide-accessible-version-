@@ -1,7 +1,45 @@
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# Logs
+logs/*.log
+*.log
+
+# Outputs
+outputs/audio/*.mp3
+outputs/audio/*.wav
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
 source/
 test_*.py
 test_*.jpg
 test_*.mp3
-.env
-.env
-.env
+tests/test_data/known_artworks/*.jpg
+tests/test_data/known_artworks/*.png
+tests/test_data/generic_images/*.jpg
+tests/test_data/generic_images/*.png
+tests/test_data/unknown_artworks/*.jpg
+tests/test_data/unknown_artworks/*.png
+tests/results/*.json
