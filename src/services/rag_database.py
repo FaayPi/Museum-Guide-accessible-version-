@@ -169,7 +169,7 @@ Title:"""
             "year": "2000",  # Fixed year
             "period": "Contemporary Art",  # Fixed period
             "confidence": "high",  # High confidence since we know the artist
-            "description": description[:500]  # Store first 500 chars in metadata
+            "description": description[:2000]  # Store first 500 chars in metadata
         }
 
         # Upsert to Pinecone
