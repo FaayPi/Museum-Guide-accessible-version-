@@ -5,18 +5,21 @@
 
 # AI/ML APIs
 openai==2.8.1              # OpenAI GPT-4 Vision, Chat, TTS
-pinecone==8.0.0           # Vector database for RAG
+pinecone==8.0.0            # Vector database for RAG
 
 # Image Processing
-Pillow==11.1.0             # Image manipulation
+Pillow==11.2.1             # 11.0+ required for Python 3.13 support
 imagehash==4.3.1           # Perceptual hashing for similarity
 
 # Web Interface
 gradio==6.0.1              # Web UI framework
 
+# Audio Processing
+pydub>=0.25.1              # Audio combining (used in app.py)
+
 # Utilities
 python-dotenv==1.0.0       # Environment variable management
-numpy==2.1.0             # Numerical operations
+numpy>=2.1.0               # 2.x required for Python 3.13 support
 psutil==7.0.0              # System monitoring
 
 # ==================== OPTIONAL DEPENDENCIES ====================
