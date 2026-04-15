@@ -5,10 +5,10 @@
 
 # AI/ML APIs
 openai==2.8.1              # OpenAI GPT-4 Vision, Chat, TTS
-pinecone==8.0.0            # Vector database for RAG
+pinecone==8.0.0           # Vector database for RAG
 
 # Image Processing
-Pillow==10.1.0             # Image manipulation
+Pillow==10.4.0             # Image manipulation
 imagehash==4.3.1           # Perceptual hashing for similarity
 
 # Web Interface
@@ -16,7 +16,7 @@ gradio==6.0.1              # Web UI framework
 
 # Utilities
 python-dotenv==1.0.0       # Environment variable management
-numpy==1.26.4              # Numerical operations
+numpy==2.1.0             # Numerical operations
 psutil==7.0.0              # System monitoring
 
 # ==================== OPTIONAL DEPENDENCIES ====================
